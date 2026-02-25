@@ -156,6 +156,11 @@ body {
   background: #333;
 }
 
+.refresh-btn:disabled {
+  background: #666;
+  cursor: not-allowed;
+}
+
 /* Search page */
 .search-section {
   flex: 1;

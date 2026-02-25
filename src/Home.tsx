@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS } from './refreshPolicy'
 
 interface BusArrival {
   minutes: string
@@ -14,8 +15,6 @@ interface BusRoute {
 }
 
 const STOP_CODE = '402854'
-const REFRESH_INTERVAL = 30_000
-
 function parseMinutesNum(text: string): number {
   if (text.toLowerCase().includes('approaching')) return 0
   if (text.includes('<')) return 0.5
@@ -143,30 +142,71 @@ export default function Home() {
   const [routes, setRoutes] = useState<BusRoute[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(0)
+  const [nowMs, setNowMs] = useState(Date.now())
   const [error, setError] = useState<string | null>(null)
   const [stopCode, setStopCode] = useState('')
+  const lastRequestAtRef = useRef(0)
+  const inFlightRequestRef = useRef<Promise<void> | null>(null)
   const navigate = useNavigate()
 
   const fetchBusData = useCallback(async () => {
+    if (inFlightRequestRef.current) {
+      return inFlightRequestRef.current
+    }
+
+    const now = Date.now()
+    if (now - lastRequestAtRef.current < MIN_REQUEST_GAP_MS) {
+      return
+    }
+
+    lastRequestAtRef.current = now
+    setNextAllowedRefreshAt(now + MIN_REQUEST_GAP_MS)
+    setIsRefreshing(true)
+
+    const request = (async () => {
+      try {
+        const res = await fetch(`/api/bustime?q=${STOP_CODE}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const html = await res.text()
+        const parsed = parseBusData(html)
+        setRoutes(parsed)
+        setLastUpdated(new Date())
+        setError(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to fetch')
+      } finally {
+        setLoading(false)
+        setIsRefreshing(false)
+      }
+    })()
+
+    inFlightRequestRef.current = request
+
     try {
-      const res = await fetch(`/api/bustime?q=${STOP_CODE}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const html = await res.text()
-      const parsed = parseBusData(html)
-      setRoutes(parsed)
-      setLastUpdated(new Date())
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to fetch')
+      await request
     } finally {
-      setLoading(false)
+      inFlightRequestRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    fetchBusData()
-    const interval = setInterval(fetchBusData, REFRESH_INTERVAL)
-    return () => clearInterval(interval)
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    void fetchBusData()
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void fetchBusData()
+    }, AUTO_REFRESH_INTERVAL_MS)
+
+    return () => window.clearInterval(interval)
   }, [fetchBusData])
 
   function handleGo() {
@@ -183,6 +223,8 @@ export default function Home() {
 
   const activeRouteNames = new Set(withArrivals.map((r) => r.route))
   const emptyRoutes = ALL_ROUTES.filter((name) => !activeRouteNames.has(name))
+  const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
+  const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
 
   return (
     <div className="app">
@@ -212,8 +254,16 @@ export default function Home() {
         {lastUpdated && (
           <p>Updated {lastUpdated.toLocaleTimeString()}</p>
         )}
-        <button className="refresh-btn" onClick={fetchBusData}>
-          Refresh
+        <button
+          className="refresh-btn"
+          onClick={() => void fetchBusData()}
+          disabled={refreshLocked}
+        >
+          {isRefreshing
+            ? 'Refreshing...'
+            : refreshCooldownSeconds > 0
+              ? `Refresh (${refreshCooldownSeconds}s)`
+              : 'Refresh'}
         </button>
         <form
           className="search-form"

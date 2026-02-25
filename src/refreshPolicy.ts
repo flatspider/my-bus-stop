@@ -1,0 +1,2 @@
+export const AUTO_REFRESH_INTERVAL_MS = 60_000
+export const MIN_REQUEST_GAP_MS = 15_000
