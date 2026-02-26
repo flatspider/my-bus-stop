@@ -26,7 +26,7 @@ app.get("/api/bustime", async (req, res) => {
 app.use(express.static(path.join(__dirname, "dist")));
 
 // SPA fallback — serve index.html for client-side routes
-app.get("*", (_req, res) => {
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
