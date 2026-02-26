@@ -5,7 +5,8 @@
       "WebSearch",
       "Bash(curl:*)",
       "Bash(npm install:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(bun add:*)"
     ]
   }
 }
