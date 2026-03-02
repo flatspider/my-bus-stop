@@ -1,12 +1,36 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Settings } from '../useSettings'
 
 interface SettingsPanelProps {
   onRefresh: () => void
   refreshLocked: boolean
   isRefreshing: boolean
   refreshCooldownSeconds: number
-  onClose: () => void
+  settings: Settings
+  onUpdateSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="settings-toggle">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="settings-toggle__track" />
+    </label>
+  )
 }
 
 export default function SettingsPanel({
@@ -14,7 +38,8 @@ export default function SettingsPanel({
   refreshLocked,
   isRefreshing,
   refreshCooldownSeconds,
-  onClose,
+  settings,
+  onUpdateSetting,
 }: SettingsPanelProps) {
   const [stopCode, setStopCode] = useState('')
   const navigate = useNavigate()
@@ -22,16 +47,35 @@ export default function SettingsPanel({
   function handleGo() {
     const trimmed = stopCode.trim()
     if (!trimmed) return
-    onClose()
     navigate(`/stop/${trimmed}`)
   }
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
-        <button className="settings-panel__close" onClick={onClose}>
-          &times;
-        </button>
+    <div className="bus-card bus-card--settings">
+      <div className="bus-card__accent bus-card__accent--gray" />
+      <div className="settings-panel__content">
+        <div className="settings-toggles">
+          <ToggleRow
+            label="Show 'min' suffix"
+            checked={settings.showMinSuffix}
+            onChange={(v) => onUpdateSetting('showMinSuffix', v)}
+          />
+          <ToggleRow
+            label="Show route name"
+            checked={settings.showRouteName}
+            onChange={(v) => onUpdateSetting('showRouteName', v)}
+          />
+          <ToggleRow
+            label="Show stops away"
+            checked={settings.showStopsAway}
+            onChange={(v) => onUpdateSetting('showStopsAway', v)}
+          />
+          <ToggleRow
+            label="Dark mode"
+            checked={settings.darkMode}
+            onChange={(v) => onUpdateSetting('darkMode', v)}
+          />
+        </div>
 
         <form
           className="settings-panel__form"
@@ -47,7 +91,6 @@ export default function SettingsPanel({
             placeholder="Bus stop code"
             value={stopCode}
             onChange={(e) => setStopCode(e.target.value)}
-            autoFocus
           />
           <button className="settings-panel__go" type="submit">
             Go

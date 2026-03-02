@@ -10,7 +10,21 @@ function getRouteColor(route: string): string {
   return ROUTE_COLORS[route] ?? '#1a1a1a'
 }
 
-export default function BusCard({ data, route }: { data: BusRoute | undefined; route: string }) {
+interface BusCardProps {
+  data: BusRoute | undefined
+  route: string
+  showMinSuffix?: boolean
+  showRouteName?: boolean
+  showStopsAway?: boolean
+}
+
+export default function BusCard({
+  data,
+  route,
+  showMinSuffix = true,
+  showRouteName = true,
+  showStopsAway = false,
+}: BusCardProps) {
   const color = getRouteColor(route)
   const routeName = data?.route ?? route
 
@@ -30,22 +44,36 @@ export default function BusCard({ data, route }: { data: BusRoute | undefined; r
       <div className="bus-card bus-card--empty" onClick={handleCardClick}>
         <div className="bus-card__accent" style={{ backgroundColor: color }} />
         <div className="bus-card__row">
-          <span className="bus-card__route" style={{ color }}>{routeName}</span>
+          {showRouteName && (
+            <span className="bus-card__route" style={{ color }}>{routeName}</span>
+          )}
           <span className="bus-card__no-data">No buses en route</span>
         </div>
       </div>
     )
   }
 
+  const rawMinutes = closest.minutes.replace(/\s*minutes?/, '').replace(/approaching/i, 'now')
+  const displayMinutes = rawMinutes === 'now'
+    ? 'now'
+    : showMinSuffix
+      ? `${rawMinutes} min`
+      : rawMinutes
+
   return (
     <div className="bus-card" onClick={handleCardClick}>
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
       <div className="bus-card__row">
-        <span className="bus-card__route" style={{ color }}>{routeName}</span>
-        <span className="bus-card__minutes">{closest.minutes.replace(/\s*minutes?/, '')}</span>
-        {gapMinutes != null && gapMinutes > 0 && (
-          <span className="bus-card__next-gap">+{gapMinutes} min</span>
+        {showRouteName && (
+          <span className="bus-card__route" style={{ color }}>{routeName}</span>
         )}
+        <span className="bus-card__minutes">{displayMinutes}</span>
+        {showStopsAway && closest.stopsAway && (
+          <span className="bus-card__stops-away">{closest.stopsAway} stops</span>
+        )}
+        <span className="bus-card__next-gap">
+          {gapMinutes != null && gapMinutes > 0 ? `+${gapMinutes} min` : 'none'}
+        </span>
       </div>
     </div>
   )

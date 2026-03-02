@@ -4,6 +4,7 @@ import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
 import SettingsPanel from './components/SettingsPanel'
+import { useSettings } from './useSettings'
 
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>()
@@ -18,6 +19,7 @@ export default function StopPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
+  const { settings, updateSetting } = useSettings()
 
   const fetchBusData = useCallback(async () => {
     if (!stopCode) return
@@ -93,7 +95,7 @@ export default function StopPage() {
           </button>
           <span className="stop-name">{stopName || `Stop ${stopCode}`}</span>
         </div>
-        <button className="gear-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+        <button className="gear-btn" onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           &#9881;
         </button>
       </header>
@@ -108,24 +110,38 @@ export default function StopPage() {
         ) : (
           <>
             {withArrivals.map((r) => (
-              <BusCard key={`${r.route}-${r.direction}`} data={r} route={r.route} />
+              <BusCard
+                key={`${r.route}-${r.direction}`}
+                data={r}
+                route={r.route}
+                showMinSuffix={settings.showMinSuffix}
+                showRouteName={settings.showRouteName}
+                showStopsAway={settings.showStopsAway}
+              />
             ))}
             {noArrivals.map((r) => (
-              <BusCard key={`${r.route}-${r.direction}`} data={r} route={r.route} />
+              <BusCard
+                key={`${r.route}-${r.direction}`}
+                data={r}
+                route={r.route}
+                showMinSuffix={settings.showMinSuffix}
+                showRouteName={settings.showRouteName}
+                showStopsAway={settings.showStopsAway}
+              />
             ))}
           </>
         )}
+        {settingsOpen && (
+          <SettingsPanel
+            onRefresh={() => void fetchBusData()}
+            refreshLocked={refreshLocked}
+            isRefreshing={isRefreshing}
+            refreshCooldownSeconds={refreshCooldownSeconds}
+            settings={settings}
+            onUpdateSetting={updateSetting}
+          />
+        )}
       </div>
-
-      {settingsOpen && (
-        <SettingsPanel
-          onRefresh={() => void fetchBusData()}
-          refreshLocked={refreshLocked}
-          isRefreshing={isRefreshing}
-          refreshCooldownSeconds={refreshCooldownSeconds}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
     </div>
   )
 }

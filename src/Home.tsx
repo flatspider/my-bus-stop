@@ -3,6 +3,7 @@ import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
 import SettingsPanel from './components/SettingsPanel'
+import { useSettings } from './useSettings'
 
 const STOP_CODE = '402854'
 const ALL_ROUTES = ['M101', 'M102', 'M103']
@@ -17,6 +18,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
+  const { settings, updateSetting } = useSettings()
 
   const fetchBusData = useCallback(async () => {
     if (inFlightRequestRef.current) {
@@ -87,7 +89,7 @@ export default function Home() {
         <div className="app-header__left">
           <span className="stop-name">3 AV / E 23 ST — Southbound</span>
         </div>
-        <button className="gear-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+        <button className="gear-btn" onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           &#9881;
         </button>
       </header>
@@ -100,24 +102,38 @@ export default function Home() {
         ) : (
           <>
             {withArrivals.map((r) => (
-              <BusCard key={r.route} data={r} route={r.route} />
+              <BusCard
+                key={r.route}
+                data={r}
+                route={r.route}
+                showMinSuffix={settings.showMinSuffix}
+                showRouteName={settings.showRouteName}
+                showStopsAway={settings.showStopsAway}
+              />
             ))}
             {emptyRoutes.map((name) => (
-              <BusCard key={name} data={undefined} route={name} />
+              <BusCard
+                key={name}
+                data={undefined}
+                route={name}
+                showMinSuffix={settings.showMinSuffix}
+                showRouteName={settings.showRouteName}
+                showStopsAway={settings.showStopsAway}
+              />
             ))}
           </>
         )}
+        {settingsOpen && (
+          <SettingsPanel
+            onRefresh={() => void fetchBusData()}
+            refreshLocked={refreshLocked}
+            isRefreshing={isRefreshing}
+            refreshCooldownSeconds={refreshCooldownSeconds}
+            settings={settings}
+            onUpdateSetting={updateSetting}
+          />
+        )}
       </div>
-
-      {settingsOpen && (
-        <SettingsPanel
-          onRefresh={() => void fetchBusData()}
-          refreshLocked={refreshLocked}
-          isRefreshing={isRefreshing}
-          refreshCooldownSeconds={refreshCooldownSeconds}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
     </div>
   )
 }
