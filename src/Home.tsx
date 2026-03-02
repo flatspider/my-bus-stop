@@ -1,94 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS } from './refreshPolicy'
-
-interface BusArrival {
-  minutes: string
-  minutesNum: number
-  stopsAway: string
-  vehicleId: string
-}
-
-interface BusRoute {
-  route: string
-  arrivals: BusArrival[]
-}
+import type { BusRoute } from './types'
+import BusCard from './components/BusCard'
+import SettingsPanel from './components/SettingsPanel'
 
 const STOP_CODE = '402854'
-
-function getRouteColor(route: string): string {
-  switch (route) {
-    case 'M101': return '#0039A6'
-    case 'M102': return '#00933C'
-    case 'M103': return '#B933AD'
-    default: return '#666'
-  }
-}
-
-function BusCard({ data, route }: { data: BusRoute | undefined; route: string }) {
-  const color = getRouteColor(route)
-
-  const handleCardClick = () => {
-    const mtaUrl = `https://bustime.mta.info/m/index?q=${route}`
-    if (window.confirm(`Open MTA page for ${route}?`)) {
-      window.open(mtaUrl, '_blank')
-    }
-  }
-
-  if (!data) {
-    return (
-      <div className="bus-card bus-card--empty" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
-        <div className="bus-card__header" style={{ backgroundColor: color }}>
-          <span className="bus-card__route">{route}</span>
-        </div>
-        <div className="bus-card__body">
-          <p className="bus-card__no-data">No buses en route</p>
-        </div>
-      </div>
-    )
-  }
-
-  const closest = data.arrivals[0]
-  const next = data.arrivals[1]
-
-  return (
-    <div className="bus-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
-      <div className="bus-card__header" style={{ backgroundColor: color }}>
-        <span className="bus-card__route">{data.route}</span>
-      </div>
-      <div className="bus-card__body">
-        {closest ? (
-          <>
-            <div className="bus-card__primary">
-              <span className="bus-card__minutes">{closest.minutes}</span>
-              <span className="bus-card__distance">{closest.stopsAway}</span>
-            </div>
-            {next && (
-              <div className="bus-card__next">
-                Then: {next.minutes}, {next.stopsAway}
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="bus-card__no-data">No buses en route</p>
-        )}
-      </div>
-    </div>
-  )
-}
+const ALL_ROUTES = ['M101', 'M102', 'M103']
 
 export default function Home() {
   const [routes, setRoutes] = useState<BusRoute[]>([])
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(0)
   const [nowMs, setNowMs] = useState(Date.now())
   const [error, setError] = useState<string | null>(null)
-  const [stopCode, setStopCode] = useState('')
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
-  const navigate = useNavigate()
 
   const fetchBusData = useCallback(async () => {
     if (inFlightRequestRef.current) {
@@ -110,7 +38,6 @@ export default function Home() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setRoutes(data.routes as BusRoute[])
-        setLastUpdated(new Date())
         setError(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch')
@@ -133,7 +60,6 @@ export default function Home() {
     const timer = window.setInterval(() => {
       setNowMs(Date.now())
     }, 1000)
-
     return () => window.clearInterval(timer)
   }, [])
 
@@ -143,17 +69,8 @@ export default function Home() {
       if (document.visibilityState !== 'visible') return
       void fetchBusData()
     }, AUTO_REFRESH_INTERVAL_MS)
-
     return () => window.clearInterval(interval)
   }, [fetchBusData])
-
-  function handleGo() {
-    const trimmed = stopCode.trim()
-    if (!trimmed) return
-    navigate(`/stop/${trimmed}`)
-  }
-
-  const ALL_ROUTES = ['M101', 'M102', 'M103']
 
   const withArrivals = routes
     .filter((r) => r.arrivals.length > 0)
@@ -167,8 +84,12 @@ export default function Home() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>BusWatch</h1>
-        <p className="stop-name">3 AV / E 23 ST — Southbound</p>
+        <div className="app-header__left">
+          <span className="stop-name">3 AV / E 23 ST — Southbound</span>
+        </div>
+        <button className="gear-btn" onClick={() => setSettingsOpen(true)} aria-label="Settings">
+          &#9881;
+        </button>
       </header>
 
       {error && <div className="error">{error}</div>}
@@ -188,41 +109,15 @@ export default function Home() {
         )}
       </div>
 
-      <footer className="app-footer">
-        {lastUpdated && (
-          <p>Updated {lastUpdated.toLocaleTimeString()}</p>
-        )}
-        <button
-          className="refresh-btn"
-          onClick={() => void fetchBusData()}
-          disabled={refreshLocked}
-        >
-          {isRefreshing
-            ? 'Refreshing...'
-            : refreshCooldownSeconds > 0
-              ? `Refresh (${refreshCooldownSeconds}s)`
-              : 'Refresh'}
-        </button>
-        <form
-          className="search-form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleGo()
-          }}
-        >
-          <input
-            className="search-input"
-            type="text"
-            inputMode="numeric"
-            placeholder="Input Bus Stop No."
-            value={stopCode}
-            onChange={(e) => setStopCode(e.target.value)}
-          />
-          <button className="search-btn" type="submit">
-            Go
-          </button>
-        </form>
-      </footer>
+      {settingsOpen && (
+        <SettingsPanel
+          onRefresh={() => void fetchBusData()}
+          refreshLocked={refreshLocked}
+          isRefreshing={isRefreshing}
+          refreshCooldownSeconds={refreshCooldownSeconds}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   )
 }
