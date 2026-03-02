@@ -1,5 +1,5 @@
 import { config } from "./config.ts"
-import type { BusArrival, BusRoute, StopData } from "./types.ts"
+import type { BusRoute, StopData } from "./types.ts"
 
 interface MonitoredStopVisit {
   MonitoredVehicleJourney: {
@@ -59,7 +59,7 @@ export async function fetchSiri(stopCode: string): Promise<StopData> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`SIRI API returned ${res.status}`)
 
-  const data: SiriResponse = await res.json()
+  const data = await res.json() as SiriResponse
   const visits = data.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit ?? []
 
   // Group by route + direction
