@@ -1,23 +1,23 @@
 # Product Requirements Document: Bus Stop App
 
-**Working title:** Neat Bus
-**Last Update:** 2026-03-02
-**Authors:** Conor McManamon
+**Working title:** Neat Bus  
+**Last Update:** 2026-03-02  
+**Authors:** Conor McManamon  
 **Status:** Living Document
 
 ---
 
 ## 1. Product Objective
 
-Provide a quick and easy summary of the buses arriving at your bus stop.
+Provide a quick summary of the buses arriving at your bus stop.
 
 ## 2. Problem Statement
 
-Transit apps (Apple Maps and Google Maps) provide inconsistent bus information that has caused me to miss the bus. The MTA website has better data, but is difficult to navigate and hard to read. I want a clean, dynamically rendered, one page app that shows when the next bus is coming to my local bus stop.
+Transit apps (Apple Maps and Google Maps) use a data feed with ghost buses. The MTA website has accurate GPS data, but is difficult to navigate and hard to read. I want a clean, dynamically rendered, one page app that shows when the next bus is coming to my local bus stop.
 
-The MTA designs all of their applications with scale in mind. They are focused on the ROUTES, where they go, where they originate from, and where they end. As a bus rider, I care about my single bus stop. The routes are mostly irrelevant to me. I need point to point transport. The MTA designs from the top down, but to provide more value they should design from the bottom up. Additionally, the MTA builds around bus stop codes. Those six digit numbers are not listed in any other apps, which can make it difficult to use the number as a lookup function.
+The MTA designs their applications with scale and consistency in mind. They are focused on ROUTES, where they go, where they originate from, and where they end. As a bus rider, I care about my single bus stop. I need point to point transport. Additionally, the MTA builds around six digit bus stop codes. Those numbers are not listed in any other apps, which can make it difficult to use the number as a lookup function.
 
-Google and Apple maps are truly building at scale. They use the GTFS-rt (a standard invented by Google in 2011) that is used in every city in the world. The real solution to this is having the MTA ensure that they are providing consistent information on the GTFS-rt.
+Google and Apple maps also build at scale. They use the universal GTFS-rt (a standard invented by Google in 2011) for every city they serve. The real solution to the data inconsistency is having the MTA deliver the GPS information properly to the GTFS-rt endpoints.
 
 ## 3. Scope
 
@@ -53,8 +53,6 @@ Strong visual hierarchy.
 
 1. Quick to read bus info.
 2. User has information to catch their bus.
-3. Do users upload their own songs...?
-4. Do they rate the auto-generated songs as fun?
 
 ## 7. Milestones
 
