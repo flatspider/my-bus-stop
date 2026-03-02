@@ -4,8 +4,7 @@ const raw = process.env.BUSWATCH_MODE ?? "default"
 const apiKey = process.env.MTA_API_KEY ?? ""
 
 if (!apiKey) {
-  console.error("MTA_API_KEY is required. Set it in .env.local or environment.")
-  process.exit(1)
+  console.warn("⚠ MTA_API_KEY not set — API routes will return 503")
 }
 
 function resolveMode(): BuswatchMode {

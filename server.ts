@@ -14,6 +14,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 console.log(`BusWatch mode: ${config.mode}`);
 
 app.get("/api/bustime", async (req, res) => {
+  if (!config.apiKey) {
+    res.status(503).json({ error: "Server is not configured with an API key" });
+    return;
+  }
+
   const query = req.query.q;
   if (!query) {
     res.status(400).send("Missing q parameter");
