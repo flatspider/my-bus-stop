@@ -9,7 +9,14 @@
       "Bash(bun add:*)",
       "WebFetch(domain:api.mta.info)",
       "WebFetch(domain:www.mta.info)",
-      "WebFetch(domain:register.developer.obanyc.com)"
+      "WebFetch(domain:register.developer.obanyc.com)",
+      "Bash(node:*)",
+      "WebFetch(domain:gtfs.org)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(bun remove:*)",
+      "WebFetch(domain:www.goswift.ly)",
+      "WebFetch(domain:www.wgbh.org)"
     ]
   }
 }

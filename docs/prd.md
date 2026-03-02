@@ -9,7 +9,7 @@
 
 ## 1. Product Objective
 
-Provide a quick summary of the buses arriving at your bus stop.
+Provide a quick summary of the buses arriving at your bus stop. This is for a user who takes the same trip consistently each day, as opposed to mapping new routes.
 
 ## 2. Problem Statement
 
@@ -71,6 +71,8 @@ Strong visual hierarchy.
 ## Learning Lessons
 
 - Building at scale has tradeoffs.
+
+- **MTA SIRI API field types don't match the spec (2026-03-02).** The SIRI StopMonitoring spec (and MTA's own developer docs) documents `PublishedLineName` and `DestinationName` as arrays of strings — e.g. `["M101"]` and `["LIMITED EAST VILLAGE 3 AV-6 ST via LEX"]`. In practice, MTA's `/api/siri/stop-monitoring.json` endpoint returns these as **bare strings**: `"M101"` and `"LIMITED EAST VILLAGE 3 AV-6 ST via LEX"`. This matters because of how JavaScript handles `string[0]` vs `Array<string>[0]` — both are valid syntax, but one gives you the first _character_ and the other gives you the first _element_. The parser used `journey.PublishedLineName[0]`, which silently returned `"M"` (the first char of `"M101"`) instead of the full route name. Same issue turned `"LIMITED EAST VILLAGE..."` into `"L"`. The fix: check `Array.isArray()` before indexing. The lesson: **never trust API documentation over observed API behavior**.
 
 ---
 

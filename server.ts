@@ -1,13 +1,18 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "./server/config.ts";
+import { fetchSiri } from "./server/parseSiri.ts";
+import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
+import { compareAndLog } from "./server/compare.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Proxy /api/bustime to MTA bustime
+console.log(`BusWatch mode: ${config.mode}`);
+
 app.get("/api/bustime", async (req, res) => {
   const query = req.query.q;
   if (!query) {
@@ -15,11 +20,31 @@ app.get("/api/bustime", async (req, res) => {
     return;
   }
 
-  const url = `https://bustime.mta.info/m/?q=${encodeURIComponent(String(query))}`;
-  const response = await fetch(url);
-  const html = await response.text();
-  res.set("Content-Type", "text/html; charset=utf-8");
-  res.send(html);
+  const stopCode = String(query);
+
+  try {
+    const siriData = await fetchSiri(stopCode);
+    res.json(siriData);
+
+    if (config.mode === "compare") {
+      (async () => {
+        try {
+          const routeNames = siriData.routes.map((r) => r.route);
+          const [stopArrivals, tripSummaries, vehiclePositions] = await Promise.all([
+            fetchGtfsRtForStop(stopCode),
+            fetchGtfsRtTripSummaries(routeNames),
+            fetchVehiclePositions(),
+          ]);
+          await compareAndLog(stopCode, siriData, stopArrivals, tripSummaries, vehiclePositions);
+        } catch (err) {
+          console.error("Comparison error:", err);
+        }
+      })();
+    }
+  } catch (err) {
+    console.error("Request error:", err);
+    res.status(502).send("Failed to fetch bus data");
+  }
 });
 
 // Serve static files from dist/
