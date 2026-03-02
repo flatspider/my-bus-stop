@@ -10,7 +10,10 @@
       "WebFetch(domain:api.mta.info)",
       "WebFetch(domain:www.mta.info)",
       "WebFetch(domain:register.developer.obanyc.com)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "WebFetch(domain:gtfs.org)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
