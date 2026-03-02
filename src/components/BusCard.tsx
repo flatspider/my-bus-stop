@@ -42,7 +42,7 @@ export default function BusCard({ data, route }: { data: BusRoute | undefined; r
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
       <div className="bus-card__row">
         <span className="bus-card__route" style={{ color }}>{routeName}</span>
-        <span className="bus-card__minutes">{closest.minutes}</span>
+        <span className="bus-card__minutes">{closest.minutes.replace(/\s*minutes?/, '')}</span>
         {gapMinutes != null && gapMinutes > 0 && (
           <span className="bus-card__next-gap">+{gapMinutes} min</span>
         )}
