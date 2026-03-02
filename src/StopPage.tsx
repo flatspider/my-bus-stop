@@ -120,8 +120,15 @@ function BusCard({ data }: { data: BusRoute }) {
   const closest = data.arrivals[0]
   const next = data.arrivals[1]
 
+  const handleCardClick = () => {
+    const mtaUrl = `https://bustime.mta.info/m/index?q=${data.route}`
+    if (window.confirm(`Open MTA page for ${data.route}?`)) {
+      window.open(mtaUrl, '_blank')
+    }
+  }
+
   return (
-    <div className={`bus-card${data.arrivals.length === 0 ? ' bus-card--empty' : ''}`}>
+    <div className={`bus-card${data.arrivals.length === 0 ? ' bus-card--empty' : ''}`} onClick={handleCardClick} style={{ cursor: 'pointer' }}>
       <div className="bus-card__header" style={{ backgroundColor: color }}>
         <span className="bus-card__route">{data.route}</span>
       </div>

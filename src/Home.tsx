@@ -96,9 +96,16 @@ function getRouteColor(route: string): string {
 function BusCard({ data, route }: { data: BusRoute | undefined; route: string }) {
   const color = getRouteColor(route)
 
+  const handleCardClick = () => {
+    const mtaUrl = `https://bustime.mta.info/m/index?q=${route}`
+    if (window.confirm(`Open MTA page for ${route}?`)) {
+      window.open(mtaUrl, '_blank')
+    }
+  }
+
   if (!data) {
     return (
-      <div className="bus-card bus-card--empty">
+      <div className="bus-card bus-card--empty" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
         <div className="bus-card__header" style={{ backgroundColor: color }}>
           <span className="bus-card__route">{route}</span>
         </div>
@@ -113,7 +120,7 @@ function BusCard({ data, route }: { data: BusRoute | undefined; route: string })
   const next = data.arrivals[1]
 
   return (
-    <div className="bus-card">
+    <div className="bus-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
       <div className="bus-card__header" style={{ backgroundColor: color }}>
         <span className="bus-card__route">{data.route}</span>
       </div>
