@@ -187,8 +187,10 @@ export default function StopPage() {
       try {
         const res = await fetch(`/api/bustime?q=${stopCode}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const html = await res.text()
-        const parsed = parseBusData(html)
+        const contentType = res.headers.get('Content-Type') ?? ''
+        const parsed = contentType.includes('application/json')
+          ? await res.json()
+          : parseBusData(await res.text())
         setStopName(parsed.stopName)
         setRoutes(parsed.routes)
         setLastUpdated(new Date())

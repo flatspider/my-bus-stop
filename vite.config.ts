@@ -6,9 +6,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/bustime': {
-        target: 'https://bustime.mta.info',
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/bustime/, '/m/'),
       },
     },
   },

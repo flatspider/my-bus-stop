@@ -176,8 +176,10 @@ export default function Home() {
       try {
         const res = await fetch(`/api/bustime?q=${STOP_CODE}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const html = await res.text()
-        const parsed = parseBusData(html)
+        const contentType = res.headers.get('Content-Type') ?? ''
+        const parsed = contentType.includes('application/json')
+          ? (await res.json()).routes as BusRoute[]
+          : parseBusData(await res.text())
         setRoutes(parsed)
         setLastUpdated(new Date())
         setError(null)

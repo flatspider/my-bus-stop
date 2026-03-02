@@ -9,7 +9,8 @@
       "Bash(bun add:*)",
       "WebFetch(domain:api.mta.info)",
       "WebFetch(domain:www.mta.info)",
-      "WebFetch(domain:register.developer.obanyc.com)"
+      "WebFetch(domain:register.developer.obanyc.com)",
+      "Bash(node:*)"
     ]
   }
 }
