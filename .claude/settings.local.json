@@ -13,7 +13,10 @@
       "Bash(node:*)",
       "WebFetch(domain:gtfs.org)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(bun remove:*)",
+      "WebFetch(domain:www.goswift.ly)",
+      "WebFetch(domain:www.wgbh.org)"
     ]
   }
 }

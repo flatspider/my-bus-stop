@@ -25,3 +25,5 @@ dist-ssr
 
 # Comparison logs
 data/comparison-log.md
+data/snapshots.jsonl
+data/ghost-report.md

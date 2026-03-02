@@ -1,20 +1,19 @@
-export type BuswatchMode = "scrape" | "compare" | "api"
+export type BuswatchMode = "default" | "compare"
 
-const raw = process.env.BUSWATCH_MODE ?? "scrape"
+const raw = process.env.BUSWATCH_MODE ?? "default"
 const apiKey = process.env.MTA_API_KEY ?? ""
 
+if (!apiKey) {
+  console.error("MTA_API_KEY is required. Set it in .env.local or environment.")
+  process.exit(1)
+}
+
 function resolveMode(): BuswatchMode {
-  if (raw !== "scrape" && raw !== "compare" && raw !== "api") {
-    console.warn(`Unknown BUSWATCH_MODE "${raw}", falling back to "scrape"`)
-    return "scrape"
+  if (raw === "compare") return "compare"
+  if (raw !== "default" && raw !== "") {
+    console.warn(`Unknown BUSWATCH_MODE "${raw}", falling back to "default"`)
   }
-
-  if ((raw === "compare" || raw === "api") && !apiKey) {
-    console.warn(`BUSWATCH_MODE="${raw}" requires MTA_API_KEY — falling back to "scrape"`)
-    return "scrape"
-  }
-
-  return raw
+  return "default"
 }
 
 export const config = {

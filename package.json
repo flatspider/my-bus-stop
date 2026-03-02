@@ -9,11 +9,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node --experimental-strip-types server.ts",
-    "dev:server": "node --experimental-strip-types --env-file=.env.local server.ts"
+    "dev:server": "node --experimental-strip-types --env-file=.env.local server.ts",
+    "analyze": "bun scripts/analyze-ghosts.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
-    "node-html-parser": "^7.0.2",
+    "gtfs-realtime-bindings": "^1.1.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1"

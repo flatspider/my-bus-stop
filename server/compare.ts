@@ -1,113 +1,159 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import path from "node:path"
-import type { StopData, BusRoute, BusArrival } from "./types.ts"
+import { normalizeVehicleId } from "./utils.ts"
+import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry } from "./types.ts"
 
 const LOG_PATH = path.join(process.cwd(), "data", "comparison-log.md")
+const JSONL_PATH = path.join(process.cwd(), "data", "snapshots.jsonl")
 
-interface ArrivalDiff {
-  field: string
-  html: string
-  siri: string
-}
+const ETA_THRESHOLD = 20
+const STALE_THRESHOLD_S = 90
 
-function compareArrivals(html: BusArrival, siri: BusArrival): ArrivalDiff[] {
-  const diffs: ArrivalDiff[] = []
-
-  // Minutes: fuzzy ±1 min tolerance
-  if (Math.abs(html.minutesNum - siri.minutesNum) > 1) {
-    diffs.push({ field: "minutes", html: html.minutes, siri: siri.minutes })
-  }
-
-  if (html.stopsAway !== siri.stopsAway) {
-    diffs.push({ field: "stopsAway", html: html.stopsAway, siri: siri.stopsAway })
-  }
-
-  if (html.vehicleId !== siri.vehicleId) {
-    diffs.push({ field: "vehicleId", html: html.vehicleId, siri: siri.vehicleId })
-  }
-
-  return diffs
-}
-
-function formatRow(source: string, route: string, direction: string, arrival: BusArrival): string {
-  return `| ${source} | ${route} | ${direction} | ${arrival.minutes} | ${arrival.stopsAway} | ${arrival.vehicleId} |`
-}
-
-export async function compareAndLog(stopCode: string, htmlData: StopData, siriData: StopData): Promise<void> {
+export async function compareAndLog(
+  stopCode: string,
+  siriData: StopData,
+  stopArrivals: GtfsRtArrival[],
+  tripSummaries: GtfsRtTripSummary[],
+  vehiclePositions: Map<string, VehiclePositionData>
+): Promise<void> {
   const timestamp = new Date().toISOString()
-  const allDiffs: ArrivalDiff[] = []
-  const rows: string[] = []
+  const nowEpoch = Math.floor(Date.now() / 1000)
 
-  // Index SIRI routes by route name for matching
-  const siriByRoute = new Map<string, BusRoute>()
-  for (const r of siriData.routes) {
-    siriByRoute.set(r.route, r)
-  }
+  // --- Trip-Level Fallback Analysis ---
+  const tripLines: string[] = []
+  const routesWithFallback = new Set<string>()
+  const routesWithRealtime = new Set<string>()
+  const gtfsRouteIds = new Set(tripSummaries.map((t) => t.routeId))
 
-  const matchedSiriRoutes = new Set<string>()
-
-  for (const htmlRoute of htmlData.routes) {
-    const siriRoute = siriByRoute.get(htmlRoute.route)
-    if (!siriRoute) {
-      // Route in HTML but not SIRI
-      for (const a of htmlRoute.arrivals) {
-        rows.push(formatRow("HTML", htmlRoute.route, htmlRoute.direction, a))
-        rows.push(`| SIRI | ${htmlRoute.route} | — | — | — | — |`)
-        allDiffs.push({ field: "route_missing_siri", html: htmlRoute.route, siri: "—" })
-      }
-      continue
-    }
-
-    matchedSiriRoutes.add(htmlRoute.route)
-
-    const maxLen = Math.max(htmlRoute.arrivals.length, siriRoute.arrivals.length)
-    for (let i = 0; i < maxLen; i++) {
-      const ha = htmlRoute.arrivals[i]
-      const sa = siriRoute.arrivals[i]
-
-      if (ha && sa) {
-        rows.push(formatRow("HTML", htmlRoute.route, htmlRoute.direction, ha))
-        rows.push(formatRow("SIRI", siriRoute.route, siriRoute.direction, sa))
-        allDiffs.push(...compareArrivals(ha, sa))
-      } else if (ha) {
-        rows.push(formatRow("HTML", htmlRoute.route, htmlRoute.direction, ha))
-        rows.push(`| SIRI | ${htmlRoute.route} | — | — | — | — |`)
-        allDiffs.push({ field: "extra_html_arrival", html: ha.minutes, siri: "—" })
-      } else if (sa) {
-        rows.push(`| HTML | ${siriRoute.route} | — | — | — | — |`)
-        rows.push(formatRow("SIRI", siriRoute.route, siriRoute.direction, sa))
-        allDiffs.push({ field: "extra_siri_arrival", html: "—", siri: sa.minutes })
-      }
+  for (const summary of tripSummaries) {
+    const shortRoute = extractRouteName(summary.routeId)
+    if (summary.isFallbackSuspected) {
+      routesWithFallback.add(shortRoute)
+      tripLines.push(
+        `- **ALERT: ${shortRoute} trip ${summary.tripId}** — ${summary.stopsWithDelay0 + summary.stopsWithNoData}/${summary.totalStops} stops show delay=0 or NO_DATA → SCHEDULE FALLBACK`
+      )
+    } else {
+      routesWithRealtime.add(shortRoute)
+      const realtime = summary.totalStops - summary.stopsWithDelay0 - summary.stopsWithNoData - summary.stopsWithNullDelay
+      tripLines.push(
+        `- ${shortRoute} trip ${summary.tripId} — ${realtime}/${summary.totalStops} stops have real-time delays → OK`
+      )
     }
   }
 
-  // Routes in SIRI but not HTML
+  // Check for SIRI routes missing from GTFS-RT
   for (const siriRoute of siriData.routes) {
-    if (matchedSiriRoutes.has(siriRoute.route)) continue
-    for (const a of siriRoute.arrivals) {
-      rows.push(`| HTML | ${siriRoute.route} | — | — | — | — |`)
-      rows.push(formatRow("SIRI", siriRoute.route, siriRoute.direction, a))
-      allDiffs.push({ field: "route_missing_html", html: "—", siri: siriRoute.route })
+    const hasGtfs = [...gtfsRouteIds].some((rid) => rid.endsWith(siriRoute.route))
+    if (!hasGtfs) {
+      const vehicleCount = siriRoute.arrivals.length
+      tripLines.push(
+        `- **${siriRoute.route}** — no GTFS-RT trips found (SIRI has ${vehicleCount} vehicle${vehicleCount === 1 ? "" : "s"})`
+      )
     }
   }
 
-  const status = allDiffs.length === 0 ? "MATCH" : "DIFF"
-  const diffSummary = allDiffs.length === 0
-    ? "None"
-    : allDiffs.map((d) => `- **${d.field}**: HTML="${d.html}" vs SIRI="${d.siri}"`).join("\n")
+  // --- Stop-Level Comparison ---
+  const gtfsByVehicle = new Map<string, GtfsRtArrival>()
+  const gtfsByRoute = new Map<string, GtfsRtArrival[]>()
+  for (const a of stopArrivals) {
+    if (a.vehicleId) gtfsByVehicle.set(a.vehicleId, a)
+    const short = extractRouteName(a.routeId)
+    if (!gtfsByRoute.has(short)) gtfsByRoute.set(short, [])
+    gtfsByRoute.get(short)!.push(a)
+  }
+
+  const tableRows: string[] = []
+  const snapshotVehicles: SnapshotVehicle[] = []
+  for (const siriRoute of siriData.routes) {
+    for (const arrival of siriRoute.arrivals) {
+      const normalizedId = arrival.vehicleId ? normalizeVehicleId(arrival.vehicleId) : ""
+      const etaMinutes = arrival.minutesNum === 999 ? null : arrival.minutesNum
+
+      // Try matching by vehicle ID first, then by route
+      let gtfsMatch = arrival.vehicleId ? gtfsByVehicle.get(arrival.vehicleId) : undefined
+      if (!gtfsMatch) {
+        const routeArrivals = gtfsByRoute.get(siriRoute.route)
+        if (routeArrivals?.length) {
+          gtfsMatch = routeArrivals.shift()
+        }
+      }
+
+      // VP-based flag logic
+      const vpData = normalizedId ? vehiclePositions.get(normalizedId) : undefined
+      let flag: SnapshotVehicle["flag"] = "NO_GTFS_RT"
+
+      if (etaMinutes !== null && etaMinutes >= ETA_THRESHOLD) {
+        flag = "FAR"
+      } else if (!vpData) {
+        flag = "NO_VP"
+      } else {
+        const vpAge = nowEpoch - vpData.timestamp
+        flag = vpAge > STALE_THRESHOLD_S ? "STALE_VP" : "OK"
+      }
+
+      const vpAge = vpData ? `${nowEpoch - vpData.timestamp}s` : "—"
+
+      tableRows.push(
+        `| ${siriRoute.route} | ${normalizedId || "—"} | ${arrival.minutes} | ${arrival.stopsAway} | ${vpAge} | ${vpData?.currentStatus ?? "—"} | ${flag} |`
+      )
+
+      snapshotVehicles.push({
+        vehicleId: normalizedId || "unknown",
+        route: siriRoute.route,
+        siriEtaMinutes: etaMinutes,
+        siriDistance: arrival.stopsAway,
+        gtfsDelay: gtfsMatch?.arrivalDelay ?? null,
+        gtfsStatus: gtfsMatch?.scheduleRelationship ?? null,
+        flag,
+        tripId: gtfsMatch?.tripId ?? null,
+        vpLatitude: vpData?.latitude ?? null,
+        vpLongitude: vpData?.longitude ?? null,
+        vpTimestamp: vpData?.timestamp ?? null,
+        hasVehiclePosition: !!vpData,
+      })
+    }
+  }
+
+  // --- Summary ---
+  const siriRouteNames = new Set(siriData.routes.map((r) => r.route))
+  const fallbackCount = [...siriRouteNames].filter((r) => routesWithFallback.has(r)).length
+  const realtimeCount = [...siriRouteNames].filter((r) => routesWithRealtime.has(r)).length
+  const noGtfsCount = siriRouteNames.size - fallbackCount - realtimeCount
 
   const entry = `
-## Stop ${stopCode} @ ${timestamp} — ${status}
+## Stop ${stopCode} @ ${timestamp}
 
-| Source | Route | Direction | Minutes | Stops Away | Vehicle |
-|--------|-------|-----------|---------|------------|---------|
-${rows.join("\n")}
+### Trip-Level Fallback Analysis
+${tripLines.length > 0 ? tripLines.join("\n") : "No GTFS-RT trip data available"}
 
-Differences: ${diffSummary}
+### Stop-Level Comparison (Stop ${stopCode})
+| Route | Vehicle | SIRI ETA | SIRI Distance | VP Age | VP Status | Flag |
+|-------|---------|----------|---------------|--------|-----------|------|
+${tableRows.length > 0 ? tableRows.join("\n") : "| — | — | — | — | — | — | No data |"}
 
+### Summary
+Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-time: ${realtimeCount} | No GTFS-RT: ${noGtfsCount} | VP entries: ${vehiclePositions.size}
 ---
 `
 
   await mkdir(path.dirname(LOG_PATH), { recursive: true })
   await appendFile(LOG_PATH, entry, "utf-8")
+
+  // Write structured JSONL for analysis
+  const snapshot: SnapshotEntry = {
+    timestamp,
+    stopCode,
+    vehicles: snapshotVehicles,
+  }
+  await appendFile(JSONL_PATH, JSON.stringify(snapshot) + "\n", "utf-8")
+}
+
+function extractRouteName(gtfsRouteId: string): string {
+  // "MTA NYCT_M101" → "M101"
+  const underscoreIdx = gtfsRouteId.lastIndexOf("_")
+  if (underscoreIdx !== -1) return gtfsRouteId.slice(underscoreIdx + 1)
+  // "MTA NYCT M101" with space
+  const spaceIdx = gtfsRouteId.lastIndexOf(" ")
+  if (spaceIdx !== -1) return gtfsRouteId.slice(spaceIdx + 1)
+  return gtfsRouteId
 }

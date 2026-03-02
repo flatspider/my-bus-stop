@@ -2,8 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "./server/config.ts";
-import { parseHtml } from "./server/parseHtml.ts";
 import { fetchSiri } from "./server/parseSiri.ts";
+import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog } from "./server/compare.ts";
 
 const app = express();
@@ -13,7 +13,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 console.log(`BusWatch mode: ${config.mode}`);
 
-// Proxy /api/bustime to MTA bustime
 app.get("/api/bustime", async (req, res) => {
   const query = req.query.q;
   if (!query) {
@@ -24,35 +23,24 @@ app.get("/api/bustime", async (req, res) => {
   const stopCode = String(query);
 
   try {
-    if (config.mode === "api") {
-      // SIRI only — return JSON directly
-      const siriData = await fetchSiri(stopCode);
-      res.set("Content-Type", "application/json");
-      res.json(siriData);
-      return;
-    }
-
-    // Scrape HTML (used in both "scrape" and "compare" modes)
-    const url = `https://bustime.mta.info/m/?q=${encodeURIComponent(stopCode)}`;
-    const response = await fetch(url);
-    const html = await response.text();
+    const siriData = await fetchSiri(stopCode);
+    res.json(siriData);
 
     if (config.mode === "compare") {
-      // Fire-and-forget: fetch SIRI, compare, log — don't block the response
       (async () => {
         try {
-          const htmlData = parseHtml(html);
-          const siriData = await fetchSiri(stopCode);
-          await compareAndLog(stopCode, htmlData, siriData);
+          const routeNames = siriData.routes.map((r) => r.route);
+          const [stopArrivals, tripSummaries, vehiclePositions] = await Promise.all([
+            fetchGtfsRtForStop(stopCode),
+            fetchGtfsRtTripSummaries(routeNames),
+            fetchVehiclePositions(),
+          ]);
+          await compareAndLog(stopCode, siriData, stopArrivals, tripSummaries, vehiclePositions);
         } catch (err) {
           console.error("Comparison error:", err);
         }
       })();
     }
-
-    // Return HTML to client (same as before)
-    res.set("Content-Type", "text/html; charset=utf-8");
-    res.send(html);
   } catch (err) {
     console.error("Request error:", err);
     res.status(502).send("Failed to fetch bus data");

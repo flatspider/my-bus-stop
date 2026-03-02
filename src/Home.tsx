@@ -15,74 +15,6 @@ interface BusRoute {
 }
 
 const STOP_CODE = '402854'
-function parseMinutesNum(text: string): number {
-  if (text.toLowerCase().includes('approaching')) return 0
-  if (text.includes('<')) return 0.5
-  const num = parseFloat(text)
-  return isNaN(num) ? 999 : num
-}
-
-function parseStopsAway(distanceText: string): string {
-  const stopsMatch = distanceText.match(/([\d<]+)\s*stops?\s*away/i)
-  if (stopsMatch) return `${stopsMatch[1]} stops away`
-
-  if (distanceText.toLowerCase().includes('approaching')) return 'Approaching'
-
-  const milesMatch = distanceText.match(/([\d.]+)\s*miles?\s*away/i)
-  if (milesMatch) {
-    const miles = parseFloat(milesMatch[1])
-    const stops = Math.max(1, Math.round(miles * 8))
-    return `~${stops} stops away`
-  }
-
-  return distanceText
-}
-
-function parseBusData(html: string): BusRoute[] {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
-  const directions = doc.querySelectorAll('.directionAtStop')
-  const routes: BusRoute[] = []
-
-  directions.forEach((dir) => {
-    const headerEl = dir.querySelector('p strong')
-    if (!headerEl) return
-
-    const headerText = headerEl.textContent?.trim() ?? ''
-    const match = headerText.match(/^(\S+)\s/)
-    if (!match) return
-
-    const route = match[1]
-
-    const arrivals: BusArrival[] = []
-    const ols = dir.querySelectorAll('ol')
-    ols.forEach((ol) => {
-      const li = ol.querySelector('li')
-      if (!li) return
-
-      const minutesEl = li.querySelector('strong')
-      const minutes = minutesEl?.textContent?.trim() ?? ''
-
-      const vehicleEl = li.querySelector('small')
-      const vehicleId = vehicleEl?.textContent?.trim().replace('Vehicle ', '') ?? ''
-
-      const fullText = li.textContent ?? ''
-      const distanceMatch = fullText.match(/minutes?\s*,\s*(.+?)(?:\s*Vehicle|\s*$)/)
-      const rawDistance = distanceMatch?.[1]?.trim() ?? ''
-
-      arrivals.push({
-        minutes,
-        minutesNum: parseMinutesNum(minutes),
-        stopsAway: parseStopsAway(rawDistance),
-        vehicleId,
-      })
-    })
-
-    routes.push({ route, arrivals })
-  })
-
-  return routes
-}
 
 function getRouteColor(route: string): string {
   switch (route) {
@@ -176,11 +108,8 @@ export default function Home() {
       try {
         const res = await fetch(`/api/bustime?q=${STOP_CODE}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const contentType = res.headers.get('Content-Type') ?? ''
-        const parsed = contentType.includes('application/json')
-          ? (await res.json()).routes as BusRoute[]
-          : parseBusData(await res.text())
-        setRoutes(parsed)
+        const data = await res.json()
+        setRoutes(data.routes as BusRoute[])
         setLastUpdated(new Date())
         setError(null)
       } catch (e) {
