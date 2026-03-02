@@ -3,8 +3,8 @@ import type { BusArrival, BusRoute, StopData } from "./types.ts"
 
 interface MonitoredStopVisit {
   MonitoredVehicleJourney: {
-    PublishedLineName: string[]
-    DestinationName: string[]
+    PublishedLineName: string[] | string
+    DestinationName: string[] | string
     VehicleRef: string
     MonitoredCall: {
       ExpectedArrivalTime?: string
@@ -67,8 +67,10 @@ export async function fetchSiri(stopCode: string): Promise<StopData> {
 
   for (const visit of visits) {
     const journey = visit.MonitoredVehicleJourney
-    const route = journey.PublishedLineName?.[0] ?? "Unknown"
-    const direction = journey.DestinationName?.[0] ?? ""
+    const rawLine = journey.PublishedLineName
+    const route = Array.isArray(rawLine) ? rawLine[0] : rawLine ?? "Unknown"
+    const rawDest = journey.DestinationName
+    const direction = Array.isArray(rawDest) ? rawDest[0] : rawDest ?? ""
     const vehicleId = journey.VehicleRef ?? ""
     const expectedArrival = journey.MonitoredCall?.ExpectedArrivalTime
     const { minutes, minutesNum } = computeMinutes(expectedArrival)
