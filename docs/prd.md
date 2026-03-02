@@ -17,6 +17,8 @@ Transit apps (Apple Maps and Google Maps) provide inconsistent bus information t
 
 The MTA designs all of their applications with scale in mind. They are focused on the ROUTES, where they go, where they originate from, and where they end. As a bus rider, I care about my single bus stop. The routes are mostly irrelevant to me. I need point to point transport. The MTA designs from the top down, but to provide more value they should design from the bottom up. Additionally, the MTA builds around bus stop codes. Those six digit numbers are not listed in any other apps, which can make it difficult to use the number as a lookup function.
 
+Google and Apple maps are truly building at scale. They use the GTFS-rt (a standard invented by Google in 2011) that is used in every city in the world. The real solution to this is having the MTA ensure that they are providing consistent information on the GTFS-rt.
+
 ## 3. Scope
 
 - A single user browser-based dashboard
@@ -66,11 +68,11 @@ Strong visual hierarchy.
 
 ## 8. Tradeoffs & Open Questions
 
-**Data Source** Each bus is connected by CleverCAD GPS devices. These three separate data sources. The GTFS-RT feed (failure mode backs up to the schedule) occasionally provides inaccurate info. There is SIRI API, and then the OneBusAway API is most accurate.
+**Data Source** Each bus is connected by CleverCAD GPS devices. These three separate data sources. The GTFS-RT feed (failure mode backs up to the schedule) occasionally provides inaccurate info. There is SIRI API, and then this app is using the OneBusAway API.
 
 ## Learning Lessons
 
-- Building at scale is difficult
+- Building at scale has tradeoffs.
 
 ---
 

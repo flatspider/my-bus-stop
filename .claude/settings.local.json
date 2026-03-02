@@ -8,7 +8,8 @@
       "Bash(npx tsc:*)",
       "Bash(bun add:*)",
       "WebFetch(domain:api.mta.info)",
-      "WebFetch(domain:www.mta.info)"
+      "WebFetch(domain:www.mta.info)",
+      "WebFetch(domain:register.developer.obanyc.com)"
     ]
   }
 }
