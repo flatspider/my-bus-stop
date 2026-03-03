@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Settings } from "../useSettings";
+
+const QrScanner = lazy(() => import("./QrScanner"));
 
 interface SettingsPanelProps {
   onRefresh: () => void;
@@ -45,7 +47,20 @@ export default function SettingsPanel({
   onUpdateSetting,
 }: SettingsPanelProps) {
   const [stopCode, setStopCode] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  function handleScan(code: string) {
+    setStopCode(code);
+    setScannerOpen(false);
+    setScanError("");
+  }
+
+  function handleScanError(msg: string) {
+    setScanError(msg);
+  }
 
   function handleGo() {
     const trimmed = stopCode.trim();
@@ -57,6 +72,17 @@ export default function SettingsPanel({
     <div className="bus-card bus-card--settings">
       <div className="bus-card__accent bus-card__accent--gray" />
       <div className="settings-panel__content">
+        <button
+          className="settings-panel__refresh"
+          onClick={onRefresh}
+          disabled={refreshLocked}
+        >
+          {isRefreshing
+            ? "Refreshing..."
+            : refreshCooldownSeconds > 0
+              ? `Refresh (${refreshCooldownSeconds}s)`
+              : "Refresh"}
+        </button>
         <div className="settings-toggles">
           <ToggleRow
             label="Show 'min' suffix"
@@ -85,22 +111,46 @@ export default function SettingsPanel({
           />
         </div>
 
-        <div data-tutorial="stop-input">
+        <div>
           <form
+            data-tutorial="stop-input"
             className="settings-panel__form"
             onSubmit={(e) => {
               e.preventDefault();
               handleGo();
             }}
           >
-            <input
-              className="settings-panel__input"
-              type="text"
-              inputMode="numeric"
-              placeholder="Bus stop code"
-              value={stopCode}
-              onChange={(e) => setStopCode(e.target.value)}
-            />
+            <div className="settings-panel__input-wrap">
+              <input
+                ref={inputRef}
+                className="settings-panel__input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Bus stop code"
+                value={stopCode}
+                onChange={(e) => setStopCode(e.target.value.replace(/\D/g, ""))}
+                onFocus={() => {
+                  setTimeout(() => {
+                    inputRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                  }, 300);
+                }}
+              />
+              <button
+                className="settings-panel__scan-btn"
+                type="button"
+                onClick={() => { setScannerOpen(true); setScanError(""); }}
+                aria-label="Scan QR code"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </button>
+            </div>
             <button className="settings-panel__go" type="submit">
               Go
             </button>
@@ -113,20 +163,19 @@ export default function SettingsPanel({
           >
             Where's my stop code?
           </a>
+          {scanError && <p className="settings-panel__scan-error">{scanError}</p>}
         </div>
-
-        <button
-          className="settings-panel__refresh"
-          onClick={onRefresh}
-          disabled={refreshLocked}
-        >
-          {isRefreshing
-            ? "Refreshing..."
-            : refreshCooldownSeconds > 0
-              ? `Refresh (${refreshCooldownSeconds}s)`
-              : "Refresh"}
-        </button>
       </div>
+
+      {scannerOpen && (
+        <Suspense fallback={null}>
+          <QrScanner
+            onScan={handleScan}
+            onClose={() => setScannerOpen(false)}
+            onError={handleScanError}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
