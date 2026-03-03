@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS, STALE_DATA_THRESHOLD_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
+import { deriveArrivalCards } from './arrivalCards'
+import { useArrivalCardTransition } from './useArrivalCardTransition'
 import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
@@ -106,21 +108,31 @@ export default function StopPage() {
     return () => window.clearInterval(interval)
   }, [fetchBusData])
 
-  const withArrivals = routes
-    .filter((r) => r.arrivals.length > 0)
-    .sort((a, b) => a.arrivals[0].minutesNum - b.arrivals[0].minutesNum)
+  const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes])
+  const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(arrivalCards, !settingsOpen)
 
-  const noArrivals = routes.filter((r) => r.arrivals.length === 0)
   const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
   const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
   const isStale = lastFetchAtMs > 0 && (nowMs - lastFetchAtMs > STALE_DATA_THRESHOLD_MS)
   const staleSeconds = lastFetchAtMs > 0 ? Math.floor((nowMs - lastFetchAtMs) / 1000) : 0
 
-  const allRoutes = [...withArrivals, ...noArrivals]
-  const busCount = allRoutes.length
+  const busCount = arrivalCards.length
   const layoutMode: LayoutMode = busCount === 1 ? 'singleHero' : busCount >= 4 ? 'dense' : 'topStack'
   const noData = !loading && busCount === 0
   const showSettingsPanel = settingsOpen || noData
+  const topCard = displayCards[0]
+  const lowerCards = displayCards.slice(1)
+
+  const cardsClassName = [
+    'cards',
+    `cards--${layoutMode}`,
+    isSlidePhase ? 'cards--slide-phase' : '',
+  ].filter(Boolean).join(' ')
+
+  const getCardShellClassName = (cardId: string) => [
+    'bus-card-shell',
+    exitingTopId === cardId ? 'bus-card-shell--exiting-top' : '',
+  ].filter(Boolean).join(' ')
 
   if (!isValidStopCode) {
     return <Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />
@@ -133,7 +145,7 @@ export default function StopPage() {
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
           {settings.showStopTitle && stopName && <span className="stop-name">{stopName}</span>}
         </div>
-        <button className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
+        <button className={`gear-btn${settingsOpen ? ' gear-btn--active' : ''}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -143,7 +155,7 @@ export default function StopPage() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className={`cards cards--${layoutMode}`}>
+      <div className={cardsClassName}>
         {loading ? (
           <>
             <div className="loading">Loading...</div>
@@ -178,25 +190,32 @@ export default function StopPage() {
           </>
         ) : (
           <>
-            <div className="cards__lead" data-tutorial="card">
-              <BusCard
-                data={allRoutes[0]}
-                route={allRoutes[0].route}
-                showMinSuffix={settings.showMinSuffix}
-                showRouteName={settings.showRouteName}
-                showStopsAway={settings.showStopsAway}
-              />
-            </div>
+            {topCard && (
+              <div className="cards__lead" data-tutorial="card">
+                <div className={getCardShellClassName(topCard.id)}>
+                  <BusCard
+                    arrival={topCard.arrival}
+                    route={topCard.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
+                  />
+                </div>
+              </div>
+            )}
             <div className="cards__list">
-              {!settingsOpen && allRoutes.slice(1).map((r) => (
-                <BusCard
-                  key={`${r.route}-${r.direction}`}
-                  data={r}
-                  route={r.route}
-                  showMinSuffix={settings.showMinSuffix}
-                  showRouteName={settings.showRouteName}
-                  showStopsAway={settings.showStopsAway}
-                />
+              {!settingsOpen && lowerCards.map((card) => (
+                <div key={card.id} className={getCardShellClassName(card.id)}>
+                  <BusCard
+                    arrival={card.arrival}
+                    route={card.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
+                  />
+                </div>
               ))}
               {showSettingsPanel && (
                 <SettingsPanel
@@ -214,7 +233,7 @@ export default function StopPage() {
         )}
       </div>
 
-      {showTutorial && !loading && busCount > 0 && (
+      {showTutorial && !loading && arrivalCards.length > 0 && (
         <Tutorial
           onClose={() => {
             localStorage.setItem('tutorialComplete', 'true')

@@ -28,7 +28,7 @@ const STEPS = [
   },
   {
     target: '[data-tutorial="card"]',
-    text: 'Tap for route details on MTA BusTime. "next bus +N min" is the gap to the bus AFTER this one.',
+    text: "Each card is one arriving bus. Tap for route details on MTA BusTime.",
     borderRadius: 16,
   },
   {
