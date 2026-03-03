@@ -451,6 +451,7 @@ html.dark .status-dot--stale {
   font-size: 16px;
   line-height: 1.5;
   color: var(--text);
+  margin: 0;
 }
 
 .tutorial-tooltip__btn {
@@ -660,5 +661,18 @@ html.dark .status-dot--stale {
 
   .bus-card__accent {
     display: none;
+  }
+
+  .tutorial-tooltip {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .tutorial-tooltip__text {
+    line-height: 1.4;
+  }
+
+  .tutorial-tooltip__btn {
+    padding: 5px 12px;
   }
 }

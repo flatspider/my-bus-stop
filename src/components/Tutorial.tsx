@@ -190,10 +190,17 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
     borderRadius: STEPS[step].borderRadius,
   };
 
-  const tooltipWidth = isMobile ? spotWidth : Math.min(spotWidth, 340);
-  const tooltipLeft = isMobile
-    ? spotLeft
-    : clamp(spotLeft, VIEWPORT_GUTTER_PX, viewportWidth - VIEWPORT_GUTTER_PX - tooltipWidth);
+  const mobileTooltipWidth = clamp(
+    spotWidth * 2,
+    220,
+    viewportWidth - VIEWPORT_GUTTER_PX * 2
+  );
+  const tooltipWidth = isMobile ? mobileTooltipWidth : Math.min(spotWidth, 340);
+  const tooltipLeft = clamp(
+    spotLeft,
+    VIEWPORT_GUTTER_PX,
+    viewportWidth - VIEWPORT_GUTTER_PX - tooltipWidth
+  );
   const tooltipBottomIfAbove = viewportHeight - spotTop + 16;
   const tooltipTopIfBelow = spotTop + spotHeight + 16;
   const tooltipBelow = tooltipTopIfBelow + 120 < viewportHeight - VIEWPORT_GUTTER_PX;
