@@ -11,6 +11,7 @@ interface SettingsPanelProps {
   isRefreshing: boolean;
   refreshCooldownSeconds: number;
   settings: Settings;
+  inline?: boolean;
   onUpdateSetting: <K extends keyof Settings>(
     key: K,
     value: Settings[K],
@@ -45,6 +46,7 @@ export default function SettingsPanel({
   isRefreshing,
   refreshCooldownSeconds,
   settings,
+  inline = false,
   onUpdateSetting,
 }: SettingsPanelProps) {
   const [stopCode, setStopCode] = useState("");
@@ -81,9 +83,10 @@ export default function SettingsPanel({
   }, [canUseQrScan, scannerOpen]);
 
   function handleScan(code: string) {
-    setStopCode(code);
     setScannerOpen(false);
     setScanError("");
+    setStopCode(code);
+    navigate(`/stop/${code}`);
   }
 
   function handleScanError(msg: string) {
@@ -100,7 +103,7 @@ export default function SettingsPanel({
   }
 
   return (
-    <div className="bus-card bus-card--settings">
+    <div className={`bus-card bus-card--settings${inline ? " bus-card--settings-inline" : ""}`}>
       <div className="bus-card__accent bus-card__accent--gray" />
       <div className="settings-panel__content">
         <button
