@@ -88,10 +88,12 @@ export default function SettingsPanel({
     setScanError(msg);
   }
 
+  const normalizedStopCode = stopCode.trim();
+  const canGo = /^\d{6}$/.test(normalizedStopCode);
+
   function handleGo() {
-    const trimmed = stopCode.trim();
-    if (!trimmed) return;
-    navigate(`/stop/${trimmed}`);
+    if (!canGo) return;
+    navigate(`/stop/${normalizedStopCode}`);
   }
 
   return (
@@ -185,7 +187,7 @@ export default function SettingsPanel({
                 </button>
               )}
             </div>
-            <button className="settings-panel__go" type="submit">
+            <button className="settings-panel__go" type="submit" disabled={!canGo}>
               Go
             </button>
           </form>

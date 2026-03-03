@@ -329,6 +329,11 @@ html.dark .status-dot--stale {
   background: var(--btn-bg-active);
 }
 
+.settings-panel__go:disabled {
+  background: var(--btn-bg-disabled);
+  cursor: not-allowed;
+}
+
 .settings-panel__refresh {
   background: var(--btn-bg);
   color: var(--btn-text);
