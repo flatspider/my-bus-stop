@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { normalizeVehicleId } from "./utils.ts"
-import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry } from "./types.ts"
+import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry, GtfsOnlyTrip } from "./types.ts"
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data")
 const LOG_PATH = path.join(DATA_DIR, "comparison-log.md")
@@ -122,6 +122,50 @@ export async function compareAndLog(
     }
   }
 
+  // --- Reverse Comparison: GTFS-RT → SIRI ---
+  // Find trips that appear in GTFS-RT but have no matching SIRI vehicle
+  const siriVehicleIds = new Set<string>()
+  for (const siriRoute of siriData.routes) {
+    for (const arrival of siriRoute.arrivals) {
+      if (arrival.vehicleId) {
+        siriVehicleIds.add(normalizeVehicleId(arrival.vehicleId))
+      }
+    }
+  }
+
+  const gtfsOnlyTrips: GtfsOnlyTrip[] = []
+  const gtfsOnlyLines: string[] = []
+  const tripSummaryMap = new Map(tripSummaries.map((t) => [t.tripId, t]))
+
+  for (const arrival of stopArrivals) {
+    const normalizedId = arrival.vehicleId ? normalizeVehicleId(arrival.vehicleId) : ""
+    if (!normalizedId || siriVehicleIds.has(normalizedId)) continue
+
+    const tripSummary = tripSummaryMap.get(arrival.tripId)
+    const isFallback = tripSummary?.isFallbackSuspected ?? false
+    const vpData = vehiclePositions.get(normalizedId)
+    const shortRoute = extractRouteName(arrival.routeId)
+
+    gtfsOnlyTrips.push({
+      tripId: arrival.tripId,
+      routeId: arrival.routeId,
+      vehicleId: normalizedId,
+      isFallback,
+      arrivalDelay: arrival.arrivalDelay,
+      scheduleRelationship: arrival.scheduleRelationship,
+      hasVehiclePosition: !!vpData,
+      vpLatitude: vpData?.latitude ?? null,
+      vpLongitude: vpData?.longitude ?? null,
+      vpTimestamp: vpData?.timestamp ?? null,
+    })
+
+    const fallbackTag = isFallback ? " **FALLBACK**" : ""
+    const vpTag = vpData ? `VP age ${nowEpoch - vpData.timestamp}s` : "NO VP"
+    gtfsOnlyLines.push(
+      `| ${shortRoute} | ${normalizedId} | ${arrival.tripId} | ${arrival.arrivalDelay ?? "—"} | ${vpTag} | ${arrival.scheduleRelationship}${fallbackTag} |`
+    )
+  }
+
   // --- Summary ---
   const siriRouteNames = new Set(siriData.routes.map((r) => r.route))
   const fallbackCount = [...siriRouteNames].filter((r) => routesWithFallback.has(r)).length
@@ -139,8 +183,13 @@ ${tripLines.length > 0 ? tripLines.join("\n") : "No GTFS-RT trip data available"
 |-------|---------|----------|---------------|--------|-----------|------|
 ${tableRows.length > 0 ? tableRows.join("\n") : "| — | — | — | — | — | — | No data |"}
 
+### GTFS-RT Only (not in SIRI) — ${gtfsOnlyTrips.length} trip${gtfsOnlyTrips.length === 1 ? "" : "s"}
+${gtfsOnlyLines.length > 0 ? `| Route | Vehicle | Trip | Delay | VP | Status |
+|-------|---------|------|-------|----|--------|
+${gtfsOnlyLines.join("\n")}` : "None — all GTFS-RT trips matched a SIRI vehicle"}
+
 ### Summary
-Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-time: ${realtimeCount} | No GTFS-RT: ${noGtfsCount} | VP entries: ${vehiclePositions.size}
+Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-time: ${realtimeCount} | No GTFS-RT: ${noGtfsCount} | GTFS-only: ${gtfsOnlyTrips.length} | VP entries: ${vehiclePositions.size}
 ---
 `
 
@@ -154,6 +203,7 @@ Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-tim
     stopCode,
     ...(stopCoords && { stopLatitude: stopCoords.latitude, stopLongitude: stopCoords.longitude }),
     vehicles: snapshotVehicles,
+    gtfsOnlyTrips,
   }
   await appendFile(JSONL_PATH, JSON.stringify(snapshot) + "\n", "utf-8")
 }

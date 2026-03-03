@@ -62,10 +62,24 @@ export interface SnapshotVehicle {
   hasVehiclePosition: boolean
 }
 
+export interface GtfsOnlyTrip {
+  tripId: string
+  routeId: string
+  vehicleId: string
+  isFallback: boolean
+  arrivalDelay: number | null
+  scheduleRelationship: string
+  hasVehiclePosition: boolean
+  vpLatitude: number | null
+  vpLongitude: number | null
+  vpTimestamp: number | null
+}
+
 export interface SnapshotEntry {
   timestamp: string
   stopCode: string
   stopLatitude?: number
   stopLongitude?: number
   vehicles: SnapshotVehicle[]
+  gtfsOnlyTrips: GtfsOnlyTrip[]
 }

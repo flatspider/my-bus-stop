@@ -31,22 +31,6 @@ app.get("/api/bustime", async (req, res) => {
   try {
     const siriData = await fetchSiri(stopCode);
     res.json(siriData);
-
-    if (config.mode === "compare") {
-      (async () => {
-        try {
-          const routeNames = siriData.routes.map((r) => r.route);
-          const [stopArrivals, tripSummaries, vehiclePositions] = await Promise.all([
-            fetchGtfsRtForStop(stopCode),
-            fetchGtfsRtTripSummaries(routeNames),
-            fetchVehiclePositions(),
-          ]);
-          await compareAndLog(stopCode, siriData, stopArrivals, tripSummaries, vehiclePositions);
-        } catch (err) {
-          console.error("Comparison error:", err);
-        }
-      })();
-    }
   } catch (err) {
     console.error("Request error:", err);
     res.status(502).send("Failed to fetch bus data");
