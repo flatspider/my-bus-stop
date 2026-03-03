@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 
+const MOBILE_BREAKPOINT_PX = 600;
+const VIEWPORT_GUTTER_PX = 12;
+const REGULAR_STEP_REVEAL_DELAY_MS = 220;
+const SETTINGS_STEP_MAX_WAIT_MS = 900;
+const SETTINGS_STEP_STABLE_FRAMES = 3;
+const RECT_STABLE_DELTA_PX = 0.75;
+const DEFAULT_SPOT_INSETS = { top: 8, right: 8, bottom: 8, left: 8 };
+const STOP_INPUT_SPOT_INSETS_DESKTOP = { top: 14, right: 10, bottom: 10, left: 10 };
+const STOP_INPUT_SPOT_INSETS_MOBILE = { top: 10, right: 8, bottom: 10, left: 8 };
+
 const STEPS = [
   {
     target: '[data-tutorial="default-stop"]',
@@ -24,15 +34,44 @@ interface Props {
   onOpenSettings: () => void;
 }
 
+interface SpotInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (max <= min) return min;
+  return Math.min(Math.max(value, min), max);
+}
+
+function rectsAreClose(a: DOMRect, b: DOMRect, delta: number): boolean {
+  return (
+    Math.abs(a.top - b.top) <= delta &&
+    Math.abs(a.left - b.left) <= delta &&
+    Math.abs(a.width - b.width) <= delta &&
+    Math.abs(a.height - b.height) <= delta
+  );
+}
+
 function measureTarget(stepIndex: number): DOMRect | null {
   const el = document.querySelector(STEPS[stepIndex].target);
   return el ? el.getBoundingClientRect() : null;
+}
+
+function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
+  if (STEPS[stepIndex].target === '[data-tutorial="stop-input"]') {
+    return isMobile ? STOP_INPUT_SPOT_INSETS_MOBILE : STOP_INPUT_SPOT_INSETS_DESKTOP;
+  }
+  return DEFAULT_SPOT_INSETS;
 }
 
 export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [visible, setVisible] = useState(true);
+  const [instantHide, setInstantHide] = useState(false);
 
   // Stable ref so the effect never re-fires from prop identity changes
   const openSettingsRef = useRef(onOpenSettings);
@@ -47,27 +86,69 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   useEffect(() => {
     if (step === 0) return;
 
-    // Fade out first so spotlight/tooltip can move cleanly between targets.
+    const shouldOpenSettings = Boolean(STEPS[step].openSettings);
+    setInstantHide(shouldOpenSettings);
+
+    // Hide first so spotlight/tooltip can move cleanly between targets.
     setVisible(false);
 
-    const shouldOpenSettings = Boolean(STEPS[step].openSettings);
     let openTimer: ReturnType<typeof setTimeout> | undefined;
+    let revealTimer: ReturnType<typeof setTimeout> | undefined;
+    let rafId: number | undefined;
+    let cancelled = false;
+
     if (shouldOpenSettings) {
-      // Small delay so fade-out finishes before opening the panel.
       openTimer = setTimeout(() => {
         openSettingsRef.current();
-      }, 50);
+      }, 0);
+
+      const startedAt = performance.now();
+      let previousRect: DOMRect | null = null;
+      let stableFrames = 0;
+
+      const pollUntilStable = () => {
+        if (cancelled) return;
+
+        const nextRect = measureTarget(step);
+        const hasTimedOut = performance.now() - startedAt >= SETTINGS_STEP_MAX_WAIT_MS;
+
+        if (nextRect) {
+          setRect(nextRect);
+          if (previousRect && rectsAreClose(previousRect, nextRect, RECT_STABLE_DELTA_PX)) {
+            stableFrames += 1;
+          } else {
+            stableFrames = 0;
+          }
+          previousRect = nextRect;
+
+          if (stableFrames >= SETTINGS_STEP_STABLE_FRAMES || hasTimedOut) {
+            setVisible(true);
+            setInstantHide(false);
+            return;
+          }
+        } else if (hasTimedOut) {
+          setVisible(true);
+          setInstantHide(false);
+          return;
+        }
+
+        rafId = window.requestAnimationFrame(pollUntilStable);
+      };
+
+      rafId = window.requestAnimationFrame(pollUntilStable);
+    } else {
+      revealTimer = setTimeout(() => {
+        setRect(measureTarget(step));
+        setVisible(true);
+        setInstantHide(false);
+      }, REGULAR_STEP_REVEAL_DELAY_MS);
     }
 
-    const revealDelay = shouldOpenSettings ? 500 : 220;
-    const revealTimer = setTimeout(() => {
-      setRect(measureTarget(step));
-      setVisible(true);
-    }, revealDelay);
-
     return () => {
+      cancelled = true;
       if (openTimer) clearTimeout(openTimer);
-      clearTimeout(revealTimer);
+      if (revealTimer) clearTimeout(revealTimer);
+      if (rafId !== undefined) window.cancelAnimationFrame(rafId);
     };
   }, [step]);
 
@@ -90,30 +171,53 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
 
   if (!rect) return null;
 
-  const pad = 8;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const isMobile = viewportWidth <= MOBILE_BREAKPOINT_PX;
+  const insets = getSpotInsets(step, isMobile);
+
+  const spotWidth = Math.min(rect.width + insets.left + insets.right, viewportWidth - VIEWPORT_GUTTER_PX * 2);
+  const spotHeight = Math.min(rect.height + insets.top + insets.bottom, viewportHeight - VIEWPORT_GUTTER_PX * 2);
+  const spotLeft = clamp(rect.left - insets.left, VIEWPORT_GUTTER_PX, viewportWidth - VIEWPORT_GUTTER_PX - spotWidth);
+  const spotTop = clamp(rect.top - insets.top, VIEWPORT_GUTTER_PX, viewportHeight - VIEWPORT_GUTTER_PX - spotHeight);
+
   const spotStyle: React.CSSProperties = {
     position: "fixed",
-    top: rect.top - pad,
-    left: rect.left - pad,
-    width: rect.width + pad * 2,
-    height: rect.height + pad * 2,
+    top: spotTop,
+    left: spotLeft,
+    width: spotWidth,
+    height: spotHeight,
     borderRadius: STEPS[step].borderRadius,
   };
 
-  const tooltipBelow = rect.bottom + pad + 16 + 120 < window.innerHeight;
+  const tooltipWidth = isMobile ? spotWidth : Math.min(spotWidth, 340);
+  const tooltipLeft = isMobile
+    ? spotLeft
+    : clamp(spotLeft, VIEWPORT_GUTTER_PX, viewportWidth - VIEWPORT_GUTTER_PX - tooltipWidth);
+  const tooltipBottomIfAbove = viewportHeight - spotTop + 16;
+  const tooltipTopIfBelow = spotTop + spotHeight + 16;
+  const tooltipBelow = tooltipTopIfBelow + 120 < viewportHeight - VIEWPORT_GUTTER_PX;
+
   const tooltipStyle: React.CSSProperties = {
     position: "fixed",
-    left: rect.left,
-    width: Math.min(rect.width + pad * 2, 340),
+    left: tooltipLeft,
+    width: tooltipWidth,
+    maxWidth: tooltipWidth,
     ...(tooltipBelow
-      ? { top: rect.bottom + pad + 16 }
-      : { bottom: window.innerHeight - rect.top + pad + 16 }),
+      ? { top: tooltipTopIfBelow }
+      : { bottom: tooltipBottomIfAbove }),
   };
 
+  const overlayClasses = [
+    "tutorial-overlay",
+    visible ? "" : "tutorial-overlay--hidden",
+    instantHide ? "tutorial-overlay--instant" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      className={`tutorial-overlay ${visible ? "" : "tutorial-overlay--hidden"}`}
-    >
+    <div className={overlayClasses}>
       <div className="tutorial-spotlight" style={spotStyle} />
 
       <div className="tutorial-tooltip" style={tooltipStyle}>

@@ -442,6 +442,13 @@ html.dark .status-dot--stale {
   z-index: 1000;
   box-shadow: 0 0 0 9999px var(--tutorial-dim);
   pointer-events: none;
+  transition:
+    top 0.22s ease,
+    left 0.22s ease,
+    width 0.22s ease,
+    height 0.22s ease,
+    border-radius 0.22s ease;
+  will-change: top, left, width, height;
 }
 
 .tutorial-tooltip {
@@ -501,13 +508,20 @@ html.dark .status-dot--stale {
 }
 
 .tutorial-overlay {
+  position: fixed;
+  inset: 0;
   opacity: 1;
   transition: opacity 0.3s ease;
   animation: tutorial-enter 0.3s ease-out;
+  z-index: 999;
 }
 
 .tutorial-overlay--hidden {
   opacity: 0;
+}
+
+.tutorial-overlay--instant {
+  transition: none;
 }
 
 @keyframes tutorial-enter {
