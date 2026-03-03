@@ -5,6 +5,7 @@ import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
+import Tutorial from './components/Tutorial'
 import { useSettings } from './useSettings'
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from './stopConfig'
 
@@ -21,6 +22,9 @@ export default function StopPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastFetchAtMs, setLastFetchAtMs] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(
+    () => !localStorage.getItem('tutorialComplete')
+  )
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
   const { settings, updateSetting } = useSettings()
@@ -125,7 +129,7 @@ export default function StopPage() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-header__left">
+        <div className="app-header__left" data-tutorial="default-stop">
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
           {settings.showStopTitle && stopName && <span className="stop-name">{stopName}</span>}
         </div>
@@ -174,7 +178,9 @@ export default function StopPage() {
           </>
         ) : (
           <>
-            {allCards[0]}
+            <div data-tutorial="card">
+              {allCards[0]}
+            </div>
             <div className="cards__lower">
               {!settingsOpen && allCards.slice(1)}
               {showSettingsPanel && (
@@ -192,6 +198,17 @@ export default function StopPage() {
           </>
         )}
       </div>
+
+      {showTutorial && !loading && allCards.length > 0 && (
+        <Tutorial
+          onClose={() => {
+            localStorage.setItem('tutorialComplete', 'true')
+            setShowTutorial(false)
+            setSettingsOpen(false)
+          }}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      )}
     </div>
   )
 }
