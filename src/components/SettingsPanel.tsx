@@ -74,6 +74,11 @@ export default function SettingsPanel({
             onChange={(v) => onUpdateSetting("showStopsAway", v)}
           />
           <ToggleRow
+            label="Show stop title"
+            checked={settings.showStopTitle}
+            onChange={(v) => onUpdateSetting("showStopTitle", v)}
+          />
+          <ToggleRow
             label="Dark mode"
             checked={settings.darkMode}
             onChange={(v) => onUpdateSetting("darkMode", v)}
