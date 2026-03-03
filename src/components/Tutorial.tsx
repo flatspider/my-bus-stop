@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const STEPS = [
   {
@@ -18,30 +18,57 @@ interface Props {
   onOpenSettings: () => void
 }
 
+function measureTarget(stepIndex: number): DOMRect | null {
+  const el = document.querySelector(STEPS[stepIndex].target)
+  return el ? el.getBoundingClientRect() : null
+}
+
 export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const [step, setStep] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const [visible, setVisible] = useState(true)
 
-  const measure = useCallback(() => {
-    const el = document.querySelector(STEPS[step].target)
-    if (el) {
-      setRect(el.getBoundingClientRect())
+  // Stable ref so the effect never re-fires from prop identity changes
+  const openSettingsRef = useRef(onOpenSettings)
+  openSettingsRef.current = onOpenSettings
+
+  // Measure on mount
+  useEffect(() => {
+    setRect(measureTarget(0))
+  }, [])
+
+  // Handle step transitions — only depends on `step`
+  useEffect(() => {
+    if (step === 0) return
+
+    // Step 1: fade out, open settings, wait for layout, measure, fade in
+    setVisible(false)
+
+    // Small delay so the fade-out opacity transition finishes before we move anything
+    const openTimer = setTimeout(() => {
+      openSettingsRef.current()
+    }, 50)
+
+    // After settings panel animation settles, measure + reveal
+    const revealTimer = setTimeout(() => {
+      setRect(measureTarget(step))
+      setVisible(true)
+    }, 500)
+
+    return () => {
+      clearTimeout(openTimer)
+      clearTimeout(revealTimer)
     }
   }, [step])
 
+  // Re-measure on resize
   useEffect(() => {
-    if (step === 1) {
-      onOpenSettings()
-      const timer = setTimeout(measure, 300)
-      return () => clearTimeout(timer)
+    function handleResize() {
+      setRect(measureTarget(step))
     }
-    measure()
-  }, [step, measure, onOpenSettings])
-
-  useEffect(() => {
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [measure])
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [step])
 
   function next() {
     if (step < STEPS.length - 1) {
@@ -63,7 +90,6 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
     borderRadius: STEPS[step].borderRadius,
   }
 
-  // Position tooltip below spotlight, or above if not enough space
   const tooltipBelow = rect.bottom + pad + 16 + 120 < window.innerHeight
   const tooltipStyle: React.CSSProperties = {
     position: 'fixed',
@@ -75,7 +101,7 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   }
 
   return (
-    <div className="tutorial-fade-in">
+    <div className={`tutorial-overlay ${visible ? '' : 'tutorial-overlay--hidden'}`}>
       <div className="tutorial-spotlight" style={spotStyle} />
 
       <div className="tutorial-tooltip" style={tooltipStyle}>
