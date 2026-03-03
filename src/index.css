@@ -13,6 +13,9 @@
   --error-bg: #fee2e2;
   --error-text: #dc2626;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.04);
+  --tutorial-accent: #007AFF;
+  --tutorial-dim: rgba(0, 0, 0, 0.55);
+  --tutorial-close-bg: rgba(142, 142, 147, 0.35);
 }
 
 html.dark {
@@ -29,6 +32,9 @@ html.dark {
   --error-bg: #3b1111;
   --error-text: #f87171;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.2);
+  --tutorial-accent: #0A84FF;
+  --tutorial-dim: rgba(0, 0, 0, 0.7);
+  --tutorial-close-bg: rgba(142, 142, 147, 0.45);
 }
 
 * {
@@ -399,6 +405,96 @@ html.dark .status-dot--stale {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Tutorial Overlay ── */
+.tutorial-spotlight {
+  z-index: 1000;
+  box-shadow: 0 0 0 9999px var(--tutorial-dim);
+  transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+  pointer-events: none;
+}
+
+.tutorial-tooltip {
+  z-index: 1001;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 340px;
+}
+
+.tutorial-tooltip__text {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.tutorial-tooltip__btn {
+  background: var(--tutorial-accent);
+  color: #fff;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-end;
+  font-family: inherit;
+}
+
+.tutorial-tooltip__btn:active {
+  opacity: 0.85;
+}
+
+.tutorial-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--tutorial-close-bg);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.tutorial-close:active {
+  opacity: 0.7;
+}
+
+.tutorial-fade-in {
+  animation: tutorial-enter 0.25s ease-out;
+}
+
+@keyframes tutorial-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Settings Help Link ── */
+.settings-help-link {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  text-align: center;
+  margin-top: -8px;
+}
+
+.settings-help-link:hover {
+  text-decoration: underline;
 }
 
 /* ── Mobile overrides ── */

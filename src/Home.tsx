@@ -4,6 +4,7 @@ import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
+import Tutorial from './components/Tutorial'
 import { useSettings } from './useSettings'
 
 const STOP_CODE = '402854'
@@ -18,6 +19,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [lastFetchAtMs, setLastFetchAtMs] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(
+    () => !localStorage.getItem('tutorialComplete')
+  )
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
   const { settings, updateSetting } = useSettings()
@@ -133,7 +137,9 @@ export default function Home() {
           <div className="loading">Loading...</div>
         ) : (
           <>
-            {allCards[0]}
+            <div data-tutorial="card">
+              {allCards[0]}
+            </div>
             <div className="cards__lower">
               {allCards.slice(1)}
               {settingsOpen && (
@@ -150,6 +156,16 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {showTutorial && !loading && (
+        <Tutorial
+          onClose={() => {
+            localStorage.setItem('tutorialComplete', 'true')
+            setShowTutorial(false)
+          }}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      )}
     </div>
   )
 }

@@ -85,25 +85,35 @@ export default function SettingsPanel({
           />
         </div>
 
-        <form
-          className="settings-panel__form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleGo();
-          }}
-        >
-          <input
-            className="settings-panel__input"
-            type="text"
-            inputMode="numeric"
-            placeholder="Bus stop code"
-            value={stopCode}
-            onChange={(e) => setStopCode(e.target.value)}
-          />
-          <button className="settings-panel__go" type="submit">
-            Go
-          </button>
-        </form>
+        <div data-tutorial="stop-input">
+          <form
+            className="settings-panel__form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGo();
+            }}
+          >
+            <input
+              className="settings-panel__input"
+              type="text"
+              inputMode="numeric"
+              placeholder="Bus stop code"
+              value={stopCode}
+              onChange={(e) => setStopCode(e.target.value)}
+            />
+            <button className="settings-panel__go" type="submit">
+              Go
+            </button>
+          </form>
+          <a
+            className="settings-help-link"
+            href="https://bustime.mta.info"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Where's my stop code?
+          </a>
+        </div>
 
         <button
           className="settings-panel__refresh"
