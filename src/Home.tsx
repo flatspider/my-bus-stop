@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS, STALE_DATA_THRESHOLD_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
+import { deriveArrivalCards } from './arrivalCards'
+import { useArrivalCardTransition } from './useArrivalCardTransition'
 import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
@@ -8,7 +10,6 @@ import Tutorial from './components/Tutorial'
 import { useSettings } from './useSettings'
 
 const STOP_CODE = '402854'
-const ALL_ROUTES = ['M101', 'M102', 'M103']
 
 export default function Home() {
   const [routes, setRoutes] = useState<BusRoute[]>([])
@@ -81,39 +82,27 @@ export default function Home() {
     return () => window.clearInterval(interval)
   }, [fetchBusData])
 
-  const withArrivals = routes
-    .filter((r) => r.arrivals.length > 0)
-    .sort((a, b) => a.arrivals[0].minutesNum - b.arrivals[0].minutesNum)
+  const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes])
+  const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(arrivalCards, !settingsOpen)
 
-  const activeRouteNames = new Set(withArrivals.map((r) => r.route))
-  const emptyRoutes = ALL_ROUTES.filter((name) => !activeRouteNames.has(name))
   const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
   const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
   const isStale = lastFetchAtMs > 0 && (nowMs - lastFetchAtMs > STALE_DATA_THRESHOLD_MS)
   const staleSeconds = lastFetchAtMs > 0 ? Math.floor((nowMs - lastFetchAtMs) / 1000) : 0
 
-  const allCards = [
-    ...withArrivals.map((r) => (
-      <BusCard
-        key={r.route}
-        data={r}
-        route={r.route}
-        showMinSuffix={settings.showMinSuffix}
-        showRouteName={settings.showRouteName}
-        showStopsAway={settings.showStopsAway}
-      />
-    )),
-    ...emptyRoutes.map((name) => (
-      <BusCard
-        key={name}
-        data={undefined}
-        route={name}
-        showMinSuffix={settings.showMinSuffix}
-        showRouteName={settings.showRouteName}
-        showStopsAway={settings.showStopsAway}
-      />
-    )),
-  ]
+  const noData = !loading && arrivalCards.length === 0
+  const topCard = displayCards[0]
+  const lowerCards = displayCards.slice(1)
+
+  const cardsClassName = [
+    'cards',
+    isSlidePhase ? 'cards--slide-phase' : '',
+  ].filter(Boolean).join(' ')
+
+  const getCardShellClassName = (cardId: string) => [
+    'bus-card-shell',
+    exitingTopId === cardId ? 'bus-card-shell--exiting-top' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div className="app">
@@ -122,7 +111,7 @@ export default function Home() {
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
           {settings.showStopTitle && <span className="stop-name">3 AV / E 23 ST — Southbound</span>}
         </div>
-        <button className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
+        <button className={`gear-btn${settingsOpen ? ' gear-btn--active' : ''}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -132,16 +121,51 @@ export default function Home() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="cards">
+      <div className={cardsClassName}>
         {loading ? (
           <div className="loading">Loading...</div>
+        ) : noData ? (
+          <>
+            <div className="loading">No buses currently en route</div>
+            {settingsOpen && (
+              <SettingsPanel
+                onRefresh={() => void fetchBusData()}
+                refreshLocked={refreshLocked}
+                isRefreshing={isRefreshing}
+                refreshCooldownSeconds={refreshCooldownSeconds}
+                settings={settings}
+                onNavigateToStop={() => setSettingsOpen(false)}
+                onUpdateSetting={updateSetting}
+              />
+            )}
+          </>
         ) : (
           <>
-            <div data-tutorial="card">
-              {allCards[0]}
-            </div>
+            {topCard && (
+              <div data-tutorial="card">
+                <div className={getCardShellClassName(topCard.id)}>
+                  <BusCard
+                    arrival={topCard.arrival}
+                    route={topCard.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                  />
+                </div>
+              </div>
+            )}
             <div className="cards__lower">
-              {!settingsOpen && allCards.slice(1)}
+              {!settingsOpen && lowerCards.map((card) => (
+                <div key={card.id} className={getCardShellClassName(card.id)}>
+                  <BusCard
+                    arrival={card.arrival}
+                    route={card.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                  />
+                </div>
+              ))}
               {settingsOpen && (
                 <SettingsPanel
                   onRefresh={() => void fetchBusData()}
@@ -158,7 +182,7 @@ export default function Home() {
         )}
       </div>
 
-      {showTutorial && !loading && (
+      {showTutorial && !loading && arrivalCards.length > 0 && (
         <Tutorial
           onClose={() => {
             localStorage.setItem('tutorialComplete', 'true')

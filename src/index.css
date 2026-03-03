@@ -120,6 +120,19 @@ body {
   flex: 1;
 }
 
+.bus-card-shell {
+  position: relative;
+}
+
+.bus-card-shell--exiting-top {
+  pointer-events: none;
+  animation: card-exit-fade 0.24s ease forwards;
+}
+
+.cards--slide-phase .bus-card-shell {
+  animation: cards-slide-up 0.22s ease-out;
+}
+
 .bus-card {
   background: var(--card-bg);
   border-radius: 16px;
@@ -205,29 +218,6 @@ html.dark .bus-card--settings {
   min-width: 0;
 }
 
-.bus-card__next-gap {
-  font-size: 14px;
-  color: var(--text-muted);
-  font-weight: 400;
-  margin-right: 4px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  display: inline-flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.bus-card__next-gap-label {
-  white-space: nowrap;
-}
-
-.bus-card__next-gap-value {
-  text-align: left;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-
 .bus-card__no-data {
   font-size: 14px;
   color: var(--text-muted);
@@ -239,6 +229,28 @@ html.dark .bus-card--settings {
   color: var(--text-muted);
   font-weight: 400;
   white-space: nowrap;
+}
+
+.bus-card__vehicle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: 8px;
+  align-self: center;
+}
+
+.bus-card__vehicle-dot--live {
+  background: #34c759;
+}
+
+.bus-card__vehicle-dot--fallback {
+  background: #9a9a9a;
+}
+
+.bus-card__vehicle-dot--approaching {
+  background: #34c759;
+  animation: bus-approach-pulse 1.2s ease-in-out infinite;
 }
 
 /* ── Status Dot ── */
@@ -270,6 +282,10 @@ html.dark .status-dot--stale {
   background: #c4a030;
 }
 
+html.dark .bus-card__vehicle-dot--fallback {
+  background: #7f7f7f;
+}
+
 @keyframes stale-pulse {
   0%,
   100% {
@@ -277,6 +293,18 @@ html.dark .status-dot--stale {
   }
   50% {
     opacity: 0.4;
+  }
+}
+
+@keyframes bus-approach-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
   }
 }
 
@@ -429,6 +457,26 @@ html.dark .status-dot--stale {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-exit-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cards-slide-up {
+  from {
+    opacity: 0.98;
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -648,6 +696,13 @@ html.dark .status-dot--stale {
 
 .settings-stop-help__link:active {
   text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bus-card-shell--exiting-top,
+  .cards--slide-phase .bus-card-shell {
+    animation: none;
+  }
 }
 
 /* ── Mobile overrides ── */

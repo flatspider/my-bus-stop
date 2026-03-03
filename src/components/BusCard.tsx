@@ -1,4 +1,4 @@
-import type { BusRoute } from "../types";
+import type { BusArrival } from "../types";
 
 const ROUTE_COLORS: Record<string, string> = {
   M101: "#0039A6",
@@ -11,7 +11,7 @@ function getRouteColor(route: string): string {
 }
 
 interface BusCardProps {
-  data: BusRoute | undefined;
+  arrival: BusArrival;
   route: string;
   showMinSuffix?: boolean;
   showRouteName?: boolean;
@@ -19,14 +19,14 @@ interface BusCardProps {
 }
 
 export default function BusCard({
-  data,
+  arrival,
   route,
   showMinSuffix = true,
   showRouteName = true,
   showStopsAway = false,
 }: BusCardProps) {
   const color = getRouteColor(route);
-  const routeName = data?.route ?? route;
+  const routeName = route;
 
   const handleCardClick = () => {
     const mtaUrl = `https://bustime.mta.info/m/index?q=${routeName}`;
@@ -35,28 +35,7 @@ export default function BusCard({
     }
   };
 
-  const closest = data?.arrivals[0];
-  const next = data?.arrivals[1];
-  const gapMinutes =
-    closest && next ? next.minutesNum - closest.minutesNum : null;
-
-  if (!data || !closest) {
-    return (
-      <div className="bus-card bus-card--empty" onClick={handleCardClick}>
-        <div className="bus-card__accent" style={{ backgroundColor: color }} />
-        <div className="bus-card__row">
-          {showRouteName && (
-            <span className="bus-card__route" style={{ color }}>
-              {routeName}
-            </span>
-          )}
-          <span className="bus-card__no-data">No buses en route</span>
-        </div>
-      </div>
-    );
-  }
-
-  const rawMinutes = closest.minutes
+  const rawMinutes = arrival.minutes
     .replace(/\s*minutes?/, "")
     .replace(/approaching/i, "now");
   const displayMinutes =
@@ -65,7 +44,22 @@ export default function BusCard({
       : showMinSuffix
         ? `${rawMinutes} min`
         : rawMinutes;
-  const nextGapValue = gapMinutes != null && gapMinutes > 0 ? `+${gapMinutes} min` : null;
+  const isApproaching =
+    arrival.minutesNum === 0 || /approaching/i.test(arrival.minutes);
+  const hasLiveVehicle = arrival.vehicleId.trim().length > 0;
+  const vehicleDotClassName = [
+    "bus-card__vehicle-dot",
+    isApproaching
+      ? "bus-card__vehicle-dot--approaching"
+      : hasLiveVehicle
+        ? "bus-card__vehicle-dot--live"
+        : "bus-card__vehicle-dot--fallback",
+  ].join(" ");
+  const vehicleDotLabel = isApproaching
+    ? "Approaching"
+    : hasLiveVehicle
+      ? "Live vehicle"
+      : "Schedule fallback";
 
   return (
     <div className="bus-card" onClick={handleCardClick}>
@@ -77,15 +71,14 @@ export default function BusCard({
           </span>
         )}
         <span className="bus-card__minutes">{displayMinutes}</span>
-        {showStopsAway && closest.stopsAway && (
-          <span className="bus-card__stops-away">{closest.stopsAway}</span>
+        {showStopsAway && arrival.stopsAway && (
+          <span className="bus-card__stops-away">{arrival.stopsAway}</span>
         )}
-        {nextGapValue && (
-          <span className="bus-card__next-gap">
-            <span className="bus-card__next-gap-label">next bus</span>
-            <span className="bus-card__next-gap-value">{nextGapValue}</span>
-          </span>
-        )}
+        <span
+          className={vehicleDotClassName}
+          aria-label={vehicleDotLabel}
+          title={vehicleDotLabel}
+        />
       </div>
     </div>
   );
