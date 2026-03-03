@@ -84,11 +84,18 @@ interface VehicleLifecycle {
   minFreshVpDistance: number | null
 }
 
-// --- Parse JSONL ---
+// --- Parse snapshots (supports both JSON array and JSONL formats) ---
 async function loadSnapshots(): Promise<SnapshotEntry[]> {
   const raw = await readFile(JSONL_PATH, "utf-8")
-  return raw
-    .trim()
+  const trimmed = raw.trim()
+
+  // If the file starts with '[', it's a JSON array
+  if (trimmed.startsWith("[")) {
+    return JSON.parse(trimmed) as SnapshotEntry[]
+  }
+
+  // Otherwise, treat as JSONL (one JSON object per line)
+  return trimmed
     .split("\n")
     .filter((line) => line.length > 0)
     .map((line) => JSON.parse(line) as SnapshotEntry)

@@ -54,6 +54,7 @@ export interface SnapshotVehicle {
   siriDistance: string
   gtfsDelay: number | null
   gtfsStatus: string | null
+  gtfsArrivalTime: number | null
   flag: "OK" | "NO_VP" | "STALE_VP" | "FAR" | "NO_GTFS_RT"
   tripId: string | null
   vpLatitude: number | null
@@ -68,6 +69,7 @@ export interface GtfsOnlyTrip {
   vehicleId: string
   isFallback: boolean
   arrivalDelay: number | null
+  arrivalTime: number | null
   scheduleRelationship: string
   hasVehiclePosition: boolean
   vpLatitude: number | null

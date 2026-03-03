@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "start": "node --experimental-strip-types server.ts",
     "dev:server": "node --experimental-strip-types --env-file=.env.local server.ts",
-    "analyze": "bun scripts/analyze-ghosts.ts"
+    "analyze": "bun scripts/analyze-ghosts.ts",
+    "analyze:disagreements": "bun scripts/analyze-disagreements.ts"
   },
   "dependencies": {
     "express": "^5.2.1",
