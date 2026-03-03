@@ -4,12 +4,14 @@ export default function StatusDot({ isStale, staleSeconds }: { isStale: boolean;
   const [expanded, setExpanded] = useState(false)
   const minutes = Math.max(1, Math.floor(staleSeconds / 60))
 
+  if (!isStale) return null
+
   return (
     <div className="status-dot-wrap" onClick={() => setExpanded(prev => !prev)}>
-      <span className={`status-dot ${isStale ? 'status-dot--stale' : ''}`} />
+      <span className="status-dot status-dot--stale" />
       {expanded && (
         <span className="status-dot__label">
-          {isStale ? `Updated ${minutes}m ago` : 'Live'}
+          Updated {minutes}m ago
         </span>
       )}
     </div>

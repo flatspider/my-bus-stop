@@ -102,6 +102,8 @@ body {
   padding: 4px 0;
   line-height: 1;
   transition: color 0.15s;
+  position: relative;
+  top: 2px;
 }
 
 .gear-btn:active {
@@ -210,12 +212,6 @@ body {
 }
 
 /* ── Status Dot ── */
-.app-header__right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .status-dot-wrap {
   display: flex;
   align-items: center;
@@ -224,17 +220,12 @@ body {
   user-select: none;
 }
 
-.status-dot {
+.status-dot--stale {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #34c759;
-  flex-shrink: 0;
-  transition: background 0.4s;
-}
-
-.status-dot--stale {
   background: #b8960c;
+  flex-shrink: 0;
   animation: stale-pulse 2s ease-in-out infinite;
 }
 
@@ -243,10 +234,6 @@ body {
   color: var(--text-muted);
   font-weight: 500;
   white-space: nowrap;
-}
-
-html.dark .status-dot {
-  background: #30d158;
 }
 
 html.dark .status-dot--stale {
