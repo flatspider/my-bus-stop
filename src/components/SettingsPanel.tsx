@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Settings } from "../useSettings";
 
@@ -167,14 +168,15 @@ export default function SettingsPanel({
         </div>
       </div>
 
-      {scannerOpen && (
+      {scannerOpen && createPortal(
         <Suspense fallback={null}>
           <QrScanner
             onScan={handleScan}
             onClose={() => setScannerOpen(false)}
             onError={handleScanError}
           />
-        </Suspense>
+        </Suspense>,
+        document.body
       )}
     </div>
   );
