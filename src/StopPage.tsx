@@ -127,7 +127,7 @@ export default function StopPage() {
       <header className="app-header">
         <div className="app-header__left">
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
-          {settings.showStopTitle && <span className="stop-name">{stopName || `Stop ${normalizedStopCode}`}</span>}
+          {settings.showStopTitle && stopName && <span className="stop-name">{stopName}</span>}
         </div>
         <button className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
