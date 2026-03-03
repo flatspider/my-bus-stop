@@ -343,3 +343,25 @@ body {
     transform: translateY(0);
   }
 }
+
+/* ── Mobile overrides ── */
+@media (max-width: 600px) {
+  :root {
+    --bg: #f0f0f0;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+
+  html.dark {
+    --bg: #0c0c0c;
+    --card-bg: #232323;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .app {
+    padding-top: 40px;
+  }
+
+  .bus-card__accent {
+    display: none;
+  }
+}
