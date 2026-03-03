@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { Settings } from "../useSettings";
 
 const QrScanner = lazy(() => import("./QrScanner"));
@@ -12,6 +12,7 @@ interface SettingsPanelProps {
   refreshCooldownSeconds: number;
   settings: Settings;
   inline?: boolean;
+  onNavigateToStop?: () => void;
   onUpdateSetting: <K extends keyof Settings>(
     key: K,
     value: Settings[K],
@@ -47,6 +48,7 @@ export default function SettingsPanel({
   refreshCooldownSeconds,
   settings,
   inline = false,
+  onNavigateToStop,
   onUpdateSetting,
 }: SettingsPanelProps) {
   const [stopCode, setStopCode] = useState("");
@@ -54,8 +56,8 @@ export default function SettingsPanel({
   const [scanError, setScanError] = useState("");
   const [hasFocusedStopInput, setHasFocusedStopInput] = useState(false);
   const [canUseQrScan, setCanUseQrScan] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const coarsePointerMedia = window.matchMedia("(pointer: coarse)");
@@ -82,11 +84,22 @@ export default function SettingsPanel({
     }
   }, [canUseQrScan, scannerOpen]);
 
+  function navigateToStop(code: string) {
+    const targetPath = `/stop/${code}`;
+    if (location.pathname === targetPath) {
+      onRefresh();
+    } else {
+      navigate(targetPath);
+    }
+    onNavigateToStop?.();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleScan(code: string) {
     setScannerOpen(false);
     setScanError("");
     setStopCode(code);
-    navigate(`/stop/${code}`);
+    navigateToStop(code);
   }
 
   function handleScanError(msg: string) {
@@ -99,7 +112,7 @@ export default function SettingsPanel({
 
   function handleGo() {
     if (!canGo) return;
-    navigate(`/stop/${normalizedStopCode}`);
+    navigateToStop(normalizedStopCode);
   }
 
   return (
@@ -156,7 +169,6 @@ export default function SettingsPanel({
           >
             <div className="settings-panel__input-wrap">
               <input
-                ref={inputRef}
                 className="settings-panel__input"
                 type="text"
                 inputMode="numeric"
@@ -169,12 +181,6 @@ export default function SettingsPanel({
                 }
                 onFocus={() => {
                   setHasFocusedStopInput(true);
-                  setTimeout(() => {
-                    inputRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "center",
-                    });
-                  }, 300);
                 }}
               />
               {canUseQrScan && (

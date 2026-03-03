@@ -149,6 +149,7 @@ export default function Home() {
                   isRefreshing={isRefreshing}
                   refreshCooldownSeconds={refreshCooldownSeconds}
                   settings={settings}
+                  onNavigateToStop={() => setSettingsOpen(false)}
                   onUpdateSetting={updateSetting}
                 />
               )}

@@ -49,6 +49,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   transition:
@@ -65,6 +66,7 @@ body {
 .app {
   padding: 24px;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -647,8 +649,9 @@ html.dark .status-dot--stale {
 
   html,
   body {
-    overflow: hidden;
-    overscroll-behavior: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .app {

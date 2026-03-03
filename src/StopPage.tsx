@@ -151,6 +151,7 @@ export default function StopPage() {
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
                 settings={settings}
+                onNavigateToStop={() => setSettingsOpen(false)}
                 onUpdateSetting={updateSetting}
               />
             )}
@@ -166,6 +167,7 @@ export default function StopPage() {
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
                 settings={settings}
+                onNavigateToStop={() => setSettingsOpen(false)}
                 onUpdateSetting={updateSetting}
               />
             )}
@@ -182,6 +184,7 @@ export default function StopPage() {
                   isRefreshing={isRefreshing}
                   refreshCooldownSeconds={refreshCooldownSeconds}
                   settings={settings}
+                  onNavigateToStop={() => setSettingsOpen(false)}
                   onUpdateSetting={updateSetting}
                 />
               )}
