@@ -105,7 +105,16 @@ export default function QrScanner({ onScan, onClose, onError }: QrScannerProps) 
           onScanRef.current(code);
         };
 
-        const config = { fps: 10 };
+        const config = {
+          fps: 6,
+          // Focus decode work in the center to improve recognition of small signs.
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.75);
+            const size = Math.max(220, Math.min(edge, 340));
+            return { width: size, height: size };
+          },
+          disableFlip: true,
+        };
         const tryStart = async (camera: string | MediaTrackConstraints) => {
           await scanner.start(
             camera,

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Settings } from "../useSettings";
@@ -50,8 +50,33 @@ export default function SettingsPanel({
   const [stopCode, setStopCode] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [canUseQrScan, setCanUseQrScan] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const coarsePointerMedia = window.matchMedia("(pointer: coarse)");
+    const smallViewportMedia = window.matchMedia("(max-width: 900px)");
+
+    const update = () => {
+      const touchCapable = coarsePointerMedia.matches || navigator.maxTouchPoints > 0;
+      setCanUseQrScan(touchCapable && smallViewportMedia.matches);
+    };
+
+    update();
+    coarsePointerMedia.addEventListener("change", update);
+    smallViewportMedia.addEventListener("change", update);
+    return () => {
+      coarsePointerMedia.removeEventListener("change", update);
+      smallViewportMedia.removeEventListener("change", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canUseQrScan && scannerOpen) {
+      setScannerOpen(false);
+    }
+  }, [canUseQrScan, scannerOpen]);
 
   function handleScan(code: string) {
     setStopCode(code);
@@ -143,17 +168,22 @@ export default function SettingsPanel({
                   }, 300);
                 }}
               />
-              <button
-                className="settings-panel__scan-btn"
-                type="button"
-                onClick={() => { setScannerOpen(true); setScanError(""); }}
-                aria-label="Scan QR code"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-              </button>
+              {canUseQrScan && (
+                <button
+                  className="settings-panel__scan-btn"
+                  type="button"
+                  onClick={() => {
+                    setScannerOpen(true);
+                    setScanError("");
+                  }}
+                  aria-label="Scan QR code"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                </button>
+              )}
             </div>
             <button className="settings-panel__go" type="submit">
               Go
