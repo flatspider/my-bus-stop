@@ -160,6 +160,7 @@ html.dark .bus-card--settings {
   right: auto;
 }
 
+.cards__list,
 .cards__lower {
   position: relative;
   display: flex;
