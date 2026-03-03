@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useRef } from 'react'
 import type { ArrivalCardItem } from './arrivalCards'
 
-const EXIT_MS = 240
-const SLIDE_MS = 220
+const EXIT_MS = 320
+const SLIDE_MS = 300
 
 interface TransitionState {
   displayCards: ArrivalCardItem[]

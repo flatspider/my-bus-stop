@@ -199,6 +199,7 @@ export default function StopPage() {
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
                 </div>
               </div>
@@ -212,6 +213,7 @@ export default function StopPage() {
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
                 </div>
               ))}

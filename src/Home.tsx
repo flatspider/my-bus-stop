@@ -150,6 +150,7 @@ export default function Home() {
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
                 </div>
               </div>
@@ -163,6 +164,7 @@ export default function Home() {
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
                 </div>
               ))}

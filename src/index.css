@@ -122,15 +122,16 @@ body {
 
 .bus-card-shell {
   position: relative;
+  will-change: transform, opacity;
 }
 
 .bus-card-shell--exiting-top {
   pointer-events: none;
-  animation: card-exit-fade 0.24s ease forwards;
+  animation: card-exit-fade 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .cards--slide-phase .bus-card-shell {
-  animation: cards-slide-up 0.22s ease-out;
+  animation: cards-slide-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .bus-card {
@@ -467,16 +468,18 @@ html.dark .bus-card__vehicle-dot--fallback {
 @keyframes card-exit-fade {
   from {
     opacity: 1;
+    transform: translateY(0);
   }
   to {
     opacity: 0;
+    transform: translateY(-6px);
   }
 }
 
 @keyframes cards-slide-up {
   from {
-    opacity: 0.98;
-    transform: translateY(14px);
+    opacity: 0.92;
+    transform: translateY(18px);
   }
   to {
     opacity: 1;

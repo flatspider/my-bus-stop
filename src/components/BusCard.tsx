@@ -16,6 +16,7 @@ interface BusCardProps {
   showMinSuffix?: boolean;
   showRouteName?: boolean;
   showStopsAway?: boolean;
+  hideVehicleStatusDot?: boolean;
 }
 
 export default function BusCard({
@@ -24,6 +25,7 @@ export default function BusCard({
   showMinSuffix = true,
   showRouteName = true,
   showStopsAway = false,
+  hideVehicleStatusDot = false,
 }: BusCardProps) {
   const color = getRouteColor(route);
   const routeName = route;
@@ -74,11 +76,13 @@ export default function BusCard({
         {showStopsAway && arrival.stopsAway && (
           <span className="bus-card__stops-away">{arrival.stopsAway}</span>
         )}
-        <span
-          className={vehicleDotClassName}
-          aria-label={vehicleDotLabel}
-          title={vehicleDotLabel}
-        />
+        {!hideVehicleStatusDot && (
+          <span
+            className={vehicleDotClassName}
+            aria-label={vehicleDotLabel}
+            title={vehicleDotLabel}
+          />
+        )}
       </div>
     </div>
   );
