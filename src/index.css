@@ -89,16 +89,6 @@ body {
   color: var(--text-secondary);
 }
 
-.back-arrow {
-  background: none;
-  border: none;
-  font-size: 22px;
-  color: var(--text);
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-}
-
 .gear-btn {
   background: none;
   border: none;
@@ -159,6 +149,13 @@ body {
 
 html.dark .bus-card--settings {
   background: #222;
+}
+
+.bus-card--settings-inline {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
 }
 
 .cards__lower {

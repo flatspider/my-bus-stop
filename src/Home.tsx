@@ -141,7 +141,7 @@ export default function Home() {
               {allCards[0]}
             </div>
             <div className="cards__lower">
-              {allCards.slice(1)}
+              {!settingsOpen && allCards.slice(1)}
               {settingsOpen && (
                 <SettingsPanel
                   onRefresh={() => void fetchBusData()}

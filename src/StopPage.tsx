@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS, STALE_DATA_THRESHOLD_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
 import { useSettings } from './useSettings'
+import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from './stopConfig'
 
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>()
-  const navigate = useNavigate()
+  const normalizedStopCode = stopCode?.trim() ?? ''
+  const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode)
   const [stopName, setStopName] = useState('')
   const [routes, setRoutes] = useState<BusRoute[]>([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +26,7 @@ export default function StopPage() {
   const { settings, updateSetting } = useSettings()
 
   const fetchBusData = useCallback(async () => {
-    if (!stopCode) return
+    if (!isValidStopCode) return
 
     if (inFlightRequestRef.current) {
       return inFlightRequestRef.current
@@ -41,7 +43,7 @@ export default function StopPage() {
 
     const request = (async () => {
       try {
-        const res = await fetch(`/api/bustime?q=${stopCode}`)
+        const res = await fetch(`/api/bustime?q=${normalizedStopCode}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setStopName(data.stopName)
@@ -63,7 +65,7 @@ export default function StopPage() {
     } finally {
       inFlightRequestRef.current = null
     }
-  }, [stopCode])
+  }, [isValidStopCode, normalizedStopCode])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -113,16 +115,19 @@ export default function StopPage() {
       />
     )),
   ]
+  const noData = !loading && allCards.length === 0
+  const showSettingsPanel = settingsOpen || noData
+
+  if (!isValidStopCode) {
+    return <Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />
+  }
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="app-header__left">
-          <button className="back-arrow" onClick={() => navigate('/')} aria-label="Back">
-            &larr;
-          </button>
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
-          {settings.showStopTitle && <span className="stop-name">{stopName || `Stop ${stopCode}`}</span>}
+          {settings.showStopTitle && <span className="stop-name">{stopName || `Stop ${normalizedStopCode}`}</span>}
         </div>
         <button className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -136,15 +141,41 @@ export default function StopPage() {
 
       <div className="cards">
         {loading ? (
-          <div className="loading">Loading...</div>
-        ) : allCards.length === 0 ? (
-          <div className="loading">No bus data found for this stop</div>
+          <>
+            <div className="loading">Loading...</div>
+            {showSettingsPanel && (
+              <SettingsPanel
+                inline
+                onRefresh={() => void fetchBusData()}
+                refreshLocked={refreshLocked}
+                isRefreshing={isRefreshing}
+                refreshCooldownSeconds={refreshCooldownSeconds}
+                settings={settings}
+                onUpdateSetting={updateSetting}
+              />
+            )}
+          </>
+        ) : noData ? (
+          <>
+            <div className="loading">No bus data found for this stop</div>
+            {showSettingsPanel && (
+              <SettingsPanel
+                inline
+                onRefresh={() => void fetchBusData()}
+                refreshLocked={refreshLocked}
+                isRefreshing={isRefreshing}
+                refreshCooldownSeconds={refreshCooldownSeconds}
+                settings={settings}
+                onUpdateSetting={updateSetting}
+              />
+            )}
+          </>
         ) : (
           <>
             {allCards[0]}
             <div className="cards__lower">
-              {allCards.slice(1)}
-              {settingsOpen && (
+              {!settingsOpen && allCards.slice(1)}
+              {showSettingsPanel && (
                 <SettingsPanel
                   onRefresh={() => void fetchBusData()}
                   refreshLocked={refreshLocked}
