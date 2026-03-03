@@ -174,6 +174,7 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const isMobile = viewportWidth <= MOBILE_BREAKPOINT_PX;
+  const isFirstStep = step === 0;
   const insets = getSpotInsets(step, isMobile);
 
   const spotWidth = Math.min(rect.width + insets.left + insets.right, viewportWidth - VIEWPORT_GUTTER_PX * 2);
@@ -190,12 +191,14 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
     borderRadius: STEPS[step].borderRadius,
   };
 
-  const mobileTooltipWidth = clamp(
-    spotWidth * 2,
-    220,
-    viewportWidth - VIEWPORT_GUTTER_PX * 2
-  );
-  const tooltipWidth = isMobile ? mobileTooltipWidth : Math.min(spotWidth, 340);
+  const maxTooltipWidth = viewportWidth - VIEWPORT_GUTTER_PX * 2;
+  const mobileTooltipWidth = isFirstStep
+    ? clamp(spotWidth * 2, 220, maxTooltipWidth)
+    : clamp(spotWidth, 220, maxTooltipWidth);
+  const desktopTooltipWidth = isFirstStep
+    ? clamp(spotWidth * 2, 260, Math.min(420, maxTooltipWidth))
+    : Math.min(spotWidth, 340);
+  const tooltipWidth = isMobile ? mobileTooltipWidth : desktopTooltipWidth;
   const tooltipLeft = clamp(
     spotLeft,
     VIEWPORT_GUTTER_PX,
