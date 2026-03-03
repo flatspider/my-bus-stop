@@ -212,6 +212,20 @@ html.dark .bus-card--settings {
   margin-right: 4px;
   flex-shrink: 0;
   white-space: nowrap;
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.bus-card__next-gap-label {
+  white-space: nowrap;
+}
+
+.bus-card__next-gap-value {
+  text-align: left;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 .bus-card__no-data {

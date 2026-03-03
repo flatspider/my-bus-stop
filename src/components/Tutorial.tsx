@@ -7,8 +7,18 @@ const SETTINGS_STEP_MAX_WAIT_MS = 900;
 const SETTINGS_STEP_STABLE_FRAMES = 3;
 const RECT_STABLE_DELTA_PX = 0.75;
 const DEFAULT_SPOT_INSETS = { top: 8, right: 8, bottom: 8, left: 8 };
-const STOP_INPUT_SPOT_INSETS_DESKTOP = { top: 14, right: 10, bottom: 10, left: 10 };
-const STOP_INPUT_SPOT_INSETS_MOBILE = { top: 10, right: 8, bottom: 10, left: 8 };
+const STOP_INPUT_SPOT_INSETS_DESKTOP = {
+  top: 14,
+  right: 10,
+  bottom: 10,
+  left: 10,
+};
+const STOP_INPUT_SPOT_INSETS_MOBILE = {
+  top: 10,
+  right: 8,
+  bottom: 10,
+  left: 8,
+};
 
 const STEPS = [
   {
@@ -18,7 +28,7 @@ const STEPS = [
   },
   {
     target: '[data-tutorial="card"]',
-    text: "Tap for route details on MTA BusTime.",
+    text: 'Tap for route details on MTA BusTime. "next bus +N min" is the gap to the bus AFTER this one.',
     borderRadius: 16,
   },
   {
@@ -62,7 +72,9 @@ function measureTarget(stepIndex: number): DOMRect | null {
 
 function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
   if (STEPS[stepIndex].target === '[data-tutorial="stop-input"]') {
-    return isMobile ? STOP_INPUT_SPOT_INSETS_MOBILE : STOP_INPUT_SPOT_INSETS_DESKTOP;
+    return isMobile
+      ? STOP_INPUT_SPOT_INSETS_MOBILE
+      : STOP_INPUT_SPOT_INSETS_DESKTOP;
   }
   return DEFAULT_SPOT_INSETS;
 }
@@ -110,11 +122,15 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
         if (cancelled) return;
 
         const nextRect = measureTarget(step);
-        const hasTimedOut = performance.now() - startedAt >= SETTINGS_STEP_MAX_WAIT_MS;
+        const hasTimedOut =
+          performance.now() - startedAt >= SETTINGS_STEP_MAX_WAIT_MS;
 
         if (nextRect) {
           setRect(nextRect);
-          if (previousRect && rectsAreClose(previousRect, nextRect, RECT_STABLE_DELTA_PX)) {
+          if (
+            previousRect &&
+            rectsAreClose(previousRect, nextRect, RECT_STABLE_DELTA_PX)
+          ) {
             stableFrames += 1;
           } else {
             stableFrames = 0;
@@ -177,10 +193,24 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const isFirstStep = step === 0;
   const insets = getSpotInsets(step, isMobile);
 
-  const spotWidth = Math.min(rect.width + insets.left + insets.right, viewportWidth - VIEWPORT_GUTTER_PX * 2);
-  const spotHeight = Math.min(rect.height + insets.top + insets.bottom, viewportHeight - VIEWPORT_GUTTER_PX * 2);
-  const spotLeft = clamp(rect.left - insets.left, VIEWPORT_GUTTER_PX, viewportWidth - VIEWPORT_GUTTER_PX - spotWidth);
-  const spotTop = clamp(rect.top - insets.top, VIEWPORT_GUTTER_PX, viewportHeight - VIEWPORT_GUTTER_PX - spotHeight);
+  const spotWidth = Math.min(
+    rect.width + insets.left + insets.right,
+    viewportWidth - VIEWPORT_GUTTER_PX * 2,
+  );
+  const spotHeight = Math.min(
+    rect.height + insets.top + insets.bottom,
+    viewportHeight - VIEWPORT_GUTTER_PX * 2,
+  );
+  const spotLeft = clamp(
+    rect.left - insets.left,
+    VIEWPORT_GUTTER_PX,
+    viewportWidth - VIEWPORT_GUTTER_PX - spotWidth,
+  );
+  const spotTop = clamp(
+    rect.top - insets.top,
+    VIEWPORT_GUTTER_PX,
+    viewportHeight - VIEWPORT_GUTTER_PX - spotHeight,
+  );
 
   const spotStyle: React.CSSProperties = {
     position: "fixed",
@@ -202,11 +232,12 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const tooltipLeft = clamp(
     spotLeft,
     VIEWPORT_GUTTER_PX,
-    viewportWidth - VIEWPORT_GUTTER_PX - tooltipWidth
+    viewportWidth - VIEWPORT_GUTTER_PX - tooltipWidth,
   );
   const tooltipBottomIfAbove = viewportHeight - spotTop + 16;
   const tooltipTopIfBelow = spotTop + spotHeight + 16;
-  const tooltipBelow = tooltipTopIfBelow + 120 < viewportHeight - VIEWPORT_GUTTER_PX;
+  const tooltipBelow =
+    tooltipTopIfBelow + 120 < viewportHeight - VIEWPORT_GUTTER_PX;
 
   const tooltipStyle: React.CSSProperties = {
     position: "fixed",
