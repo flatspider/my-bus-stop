@@ -185,7 +185,6 @@ export default function StopPage() {
                 showMinSuffix={settings.showMinSuffix}
                 showRouteName={settings.showRouteName}
                 showStopsAway={settings.showStopsAway}
-                layoutVariant={layoutMode === 'singleHero' ? 'hero' : 'standard'}
               />
             </div>
             <div className="cards__list">
@@ -197,7 +196,6 @@ export default function StopPage() {
                   showMinSuffix={settings.showMinSuffix}
                   showRouteName={settings.showRouteName}
                   showStopsAway={settings.showStopsAway}
-                  layoutVariant={layoutMode === 'dense' ? 'compact' : 'standard'}
                 />
               ))}
               {showSettingsPanel && (
