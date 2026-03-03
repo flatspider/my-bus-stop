@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS } from './refreshPolicy'
+import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS, STALE_DATA_THRESHOLD_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
 import BusCard from './components/BusCard'
+import StaleDataBanner from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
 import { useSettings } from './useSettings'
 
@@ -16,6 +17,7 @@ export default function StopPage() {
   const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(0)
   const [nowMs, setNowMs] = useState(Date.now())
   const [error, setError] = useState<string | null>(null)
+  const [lastFetchAtMs, setLastFetchAtMs] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const lastRequestAtRef = useRef(0)
   const inFlightRequestRef = useRef<Promise<void> | null>(null)
@@ -44,6 +46,7 @@ export default function StopPage() {
         const data = await res.json()
         setStopName(data.stopName)
         setRoutes(data.routes)
+        setLastFetchAtMs(Date.now())
         setError(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch')
@@ -85,6 +88,8 @@ export default function StopPage() {
   const noArrivals = routes.filter((r) => r.arrivals.length === 0)
   const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
   const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
+  const isStale = lastFetchAtMs > 0 && (nowMs - lastFetchAtMs > STALE_DATA_THRESHOLD_MS)
+  const staleSeconds = lastFetchAtMs > 0 ? Math.floor((nowMs - lastFetchAtMs) / 1000) : 0
 
   const allCards = [
     ...withArrivals.map((r) => (
@@ -125,6 +130,8 @@ export default function StopPage() {
           </svg>
         </button>
       </header>
+
+      <StaleDataBanner visible={isStale} staleSeconds={staleSeconds} />
 
       {error && <div className="error">{error}</div>}
 

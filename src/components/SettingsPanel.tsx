@@ -1,14 +1,17 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import type { Settings } from '../useSettings'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import type { Settings } from "../useSettings";
 
 interface SettingsPanelProps {
-  onRefresh: () => void
-  refreshLocked: boolean
-  isRefreshing: boolean
-  refreshCooldownSeconds: number
-  settings: Settings
-  onUpdateSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
+  onRefresh: () => void;
+  refreshLocked: boolean;
+  isRefreshing: boolean;
+  refreshCooldownSeconds: number;
+  settings: Settings;
+  onUpdateSetting: <K extends keyof Settings>(
+    key: K,
+    value: Settings[K],
+  ) => void;
 }
 
 function ToggleRow({
@@ -16,9 +19,9 @@ function ToggleRow({
   checked,
   onChange,
 }: {
-  label: string
-  checked: boolean
-  onChange: (v: boolean) => void
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
 }) {
   return (
     <label className="settings-toggle">
@@ -30,7 +33,7 @@ function ToggleRow({
       />
       <span className="settings-toggle__track" />
     </label>
-  )
+  );
 }
 
 export default function SettingsPanel({
@@ -41,13 +44,13 @@ export default function SettingsPanel({
   settings,
   onUpdateSetting,
 }: SettingsPanelProps) {
-  const [stopCode, setStopCode] = useState('')
-  const navigate = useNavigate()
+  const [stopCode, setStopCode] = useState("");
+  const navigate = useNavigate();
 
   function handleGo() {
-    const trimmed = stopCode.trim()
-    if (!trimmed) return
-    navigate(`/stop/${trimmed}`)
+    const trimmed = stopCode.trim();
+    if (!trimmed) return;
+    navigate(`/stop/${trimmed}`);
   }
 
   return (
@@ -58,30 +61,30 @@ export default function SettingsPanel({
           <ToggleRow
             label="Show 'min' suffix"
             checked={settings.showMinSuffix}
-            onChange={(v) => onUpdateSetting('showMinSuffix', v)}
+            onChange={(v) => onUpdateSetting("showMinSuffix", v)}
           />
           <ToggleRow
-            label="Show route name"
+            label="Show bus number"
             checked={settings.showRouteName}
-            onChange={(v) => onUpdateSetting('showRouteName', v)}
+            onChange={(v) => onUpdateSetting("showRouteName", v)}
           />
           <ToggleRow
             label="Show stops away"
             checked={settings.showStopsAway}
-            onChange={(v) => onUpdateSetting('showStopsAway', v)}
+            onChange={(v) => onUpdateSetting("showStopsAway", v)}
           />
           <ToggleRow
             label="Dark mode"
             checked={settings.darkMode}
-            onChange={(v) => onUpdateSetting('darkMode', v)}
+            onChange={(v) => onUpdateSetting("darkMode", v)}
           />
         </div>
 
         <form
           className="settings-panel__form"
           onSubmit={(e) => {
-            e.preventDefault()
-            handleGo()
+            e.preventDefault();
+            handleGo();
           }}
         >
           <input
@@ -103,12 +106,12 @@ export default function SettingsPanel({
           disabled={refreshLocked}
         >
           {isRefreshing
-            ? 'Refreshing...'
+            ? "Refreshing..."
             : refreshCooldownSeconds > 0
               ? `Refresh (${refreshCooldownSeconds}s)`
-              : 'Refresh'}
+              : "Refresh"}
         </button>
       </div>
     </div>
-  )
+  );
 }
