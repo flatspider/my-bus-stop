@@ -9,26 +9,36 @@ interface QrScannerProps {
 
 function extractStopCode(text: string): string | null {
   const trimmed = text.trim();
+  const parseUrlForCode = (raw: string): string | null => {
+    try {
+      const url = new URL(raw);
+      if (
+        url.hostname === "bustime.mta.info" ||
+        url.hostname === "bt.mta.info"
+      ) {
+        const code = url.searchParams.get("q");
+        if (code && /^\d{5,6}$/.test(code)) return code;
 
-  try {
-    const url = new URL(trimmed);
-    if (
-      url.hostname === "bustime.mta.info" ||
-      url.hostname === "bt.mta.info"
-    ) {
-      const code = url.searchParams.get("q");
-      if (code && /^\d{5,6}$/.test(code)) return code;
-
-      // Some links encode the stop code in the path instead of query params.
-      const pathMatch = url.pathname.match(/(?:^|\/)(\d{6}|\d{5})(?:\/|$)/);
-      if (pathMatch) return pathMatch[1];
+        const pathMatch = url.pathname.match(/(?:^|\/)(\d{6}|\d{5})(?:\/|$)/);
+        if (pathMatch) return pathMatch[1];
+      }
+    } catch {
+      // ignore invalid URL
     }
-  } catch {
-    // not a URL
+    return null;
+  };
+
+  const directUrlCode = parseUrlForCode(trimmed);
+  if (directUrlCode) return directUrlCode;
+
+  const embeddedUrl = trimmed.match(/https?:\/\/[^\s]+/i)?.[0];
+  if (embeddedUrl) {
+    const embeddedUrlCode = parseUrlForCode(embeddedUrl);
+    if (embeddedUrlCode) return embeddedUrlCode;
   }
 
-    const sixDigit = trimmed.match(/(?:^|\D)(\d{6})(?:\D|$)/);
-    if (sixDigit) return sixDigit[1];
+  const sixDigit = trimmed.match(/(?:^|\D)(\d{6})(?:\D|$)/);
+  if (sixDigit) return sixDigit[1];
 
   const fiveDigit = trimmed.match(/(?:^|\D)(\d{5})(?:\D|$)/);
   if (fiveDigit) return fiveDigit[1];
@@ -44,6 +54,7 @@ export default function QrScanner({ onScan, onClose, onError }: QrScannerProps) 
   const onCloseRef = useRef(onClose);
   const onErrorRef = useRef(onError);
   const stoppedRef = useRef(false);
+  const invalidNotifiedRef = useRef(false);
   const runningRef = useRef(false);
 
   useEffect(() => {
@@ -80,7 +91,15 @@ export default function QrScanner({ onScan, onClose, onError }: QrScannerProps) 
         const onDecode = (decodedText: string) => {
           if (stoppedRef.current) return;
           const code = extractStopCode(decodedText);
-          if (!code) return;
+          if (!code) {
+            if (!invalidNotifiedRef.current) {
+              invalidNotifiedRef.current = true;
+              onErrorRef.current("QR detected, but no valid stop code was found.");
+            }
+            return;
+          }
+
+          invalidNotifiedRef.current = false;
           stoppedRef.current = true;
           stopScanner().catch(() => {});
           onScanRef.current(code);
