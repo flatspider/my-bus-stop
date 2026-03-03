@@ -422,21 +422,6 @@ html.dark .status-dot--stale {
   }
 }
 
-@keyframes settings-fade-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-.settings-closing {
-  animation: settings-fade-out 0.3s ease-in forwards;
-}
-
 /* ── Tutorial Overlay ── */
 .tutorial-spotlight {
   z-index: 1000;
