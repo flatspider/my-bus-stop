@@ -116,6 +116,10 @@ body {
   color: var(--text);
 }
 
+.gear-btn--active {
+  color: var(--text);
+}
+
 /* ── Cards ── */
 .cards {
   display: flex;
@@ -149,6 +153,12 @@ body {
   left: 0;
   right: 0;
   z-index: 10;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  background: #fdfdfd;
+}
+
+html.dark .bus-card--settings {
+  background: #222;
 }
 
 .cards__lower {
@@ -275,10 +285,10 @@ html.dark .status-dot--stale {
 
 /* ── Settings Panel (inline card) ── */
 .settings-panel__content {
-  padding: 20px 24px 24px;
+  padding: 24px 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .settings-panel__form {
@@ -344,7 +354,7 @@ html.dark .status-dot--stale {
 .settings-toggles {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .settings-toggle {
@@ -436,9 +446,9 @@ html.dark .status-dot--stale {
   background: var(--tutorial-accent);
   color: #fff;
   border: none;
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   align-self: flex-end;
@@ -487,6 +497,86 @@ html.dark .status-dot--stale {
   to {
     opacity: 1;
   }
+}
+
+/* ── Stop Code Input Wrapper ── */
+.settings-panel__input-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.settings-panel__input-wrap .settings-panel__input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.settings-panel__scan-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  line-height: 0;
+  transition: color 0.15s;
+}
+
+.settings-panel__scan-btn:active {
+  color: var(--text);
+}
+
+.settings-panel__scan-error {
+  font-size: 13px;
+  color: var(--error-text);
+  margin-top: 4px;
+}
+
+/* ── QR Scanner Overlay ── */
+.qr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.qr-scanner__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+
+.qr-scanner__close {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 4px;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.qr-scanner__title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.qr-scanner__viewport {
+  flex: 1;
+  overflow: hidden;
+}
+
+.qr-scanner__viewport video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* ── Settings Help Link ── */

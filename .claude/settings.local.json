@@ -20,7 +20,8 @@
       "Bash(python3:*)",
       "Bash(bun:*)",
       "WebFetch(domain:data.ny.gov)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "WebFetch(domain:bustime-beta.mta.info)"
     ]
   }
 }
