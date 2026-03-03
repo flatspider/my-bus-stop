@@ -83,6 +83,29 @@ export default function Home() {
   const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
   const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
 
+  const allCards = [
+    ...withArrivals.map((r) => (
+      <BusCard
+        key={r.route}
+        data={r}
+        route={r.route}
+        showMinSuffix={settings.showMinSuffix}
+        showRouteName={settings.showRouteName}
+        showStopsAway={settings.showStopsAway}
+      />
+    )),
+    ...emptyRoutes.map((name) => (
+      <BusCard
+        key={name}
+        data={undefined}
+        route={name}
+        showMinSuffix={settings.showMinSuffix}
+        showRouteName={settings.showRouteName}
+        showStopsAway={settings.showStopsAway}
+      />
+    )),
+  ]
+
   return (
     <div className="app">
       <header className="app-header">
@@ -104,37 +127,21 @@ export default function Home() {
           <div className="loading">Loading...</div>
         ) : (
           <>
-            {withArrivals.map((r) => (
-              <BusCard
-                key={r.route}
-                data={r}
-                route={r.route}
-                showMinSuffix={settings.showMinSuffix}
-                showRouteName={settings.showRouteName}
-                showStopsAway={settings.showStopsAway}
-              />
-            ))}
-            {emptyRoutes.map((name) => (
-              <BusCard
-                key={name}
-                data={undefined}
-                route={name}
-                showMinSuffix={settings.showMinSuffix}
-                showRouteName={settings.showRouteName}
-                showStopsAway={settings.showStopsAway}
-              />
-            ))}
+            {allCards[0]}
+            <div className="cards__lower">
+              {allCards.slice(1)}
+              {settingsOpen && (
+                <SettingsPanel
+                  onRefresh={() => void fetchBusData()}
+                  refreshLocked={refreshLocked}
+                  isRefreshing={isRefreshing}
+                  refreshCooldownSeconds={refreshCooldownSeconds}
+                  settings={settings}
+                  onUpdateSetting={updateSetting}
+                />
+              )}
+            </div>
           </>
-        )}
-        {settingsOpen && (
-          <SettingsPanel
-            onRefresh={() => void fetchBusData()}
-            refreshLocked={refreshLocked}
-            isRefreshing={isRefreshing}
-            refreshCooldownSeconds={refreshCooldownSeconds}
-            settings={settings}
-            onUpdateSetting={updateSetting}
-          />
         )}
       </div>
     </div>

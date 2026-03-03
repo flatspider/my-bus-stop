@@ -86,6 +86,29 @@ export default function StopPage() {
   const refreshCooldownSeconds = Math.max(0, Math.ceil((nextAllowedRefreshAt - nowMs) / 1000))
   const refreshLocked = isRefreshing || refreshCooldownSeconds > 0
 
+  const allCards = [
+    ...withArrivals.map((r) => (
+      <BusCard
+        key={`${r.route}-${r.direction}`}
+        data={r}
+        route={r.route}
+        showMinSuffix={settings.showMinSuffix}
+        showRouteName={settings.showRouteName}
+        showStopsAway={settings.showStopsAway}
+      />
+    )),
+    ...noArrivals.map((r) => (
+      <BusCard
+        key={`${r.route}-${r.direction}`}
+        data={r}
+        route={r.route}
+        showMinSuffix={settings.showMinSuffix}
+        showRouteName={settings.showRouteName}
+        showStopsAway={settings.showStopsAway}
+      />
+    )),
+  ]
+
   return (
     <div className="app">
       <header className="app-header">
@@ -108,41 +131,25 @@ export default function StopPage() {
       <div className="cards">
         {loading ? (
           <div className="loading">Loading...</div>
-        ) : withArrivals.length === 0 && noArrivals.length === 0 ? (
+        ) : allCards.length === 0 ? (
           <div className="loading">No bus data found for this stop</div>
         ) : (
           <>
-            {withArrivals.map((r) => (
-              <BusCard
-                key={`${r.route}-${r.direction}`}
-                data={r}
-                route={r.route}
-                showMinSuffix={settings.showMinSuffix}
-                showRouteName={settings.showRouteName}
-                showStopsAway={settings.showStopsAway}
-              />
-            ))}
-            {noArrivals.map((r) => (
-              <BusCard
-                key={`${r.route}-${r.direction}`}
-                data={r}
-                route={r.route}
-                showMinSuffix={settings.showMinSuffix}
-                showRouteName={settings.showRouteName}
-                showStopsAway={settings.showStopsAway}
-              />
-            ))}
+            {allCards[0]}
+            <div className="cards__lower">
+              {allCards.slice(1)}
+              {settingsOpen && (
+                <SettingsPanel
+                  onRefresh={() => void fetchBusData()}
+                  refreshLocked={refreshLocked}
+                  isRefreshing={isRefreshing}
+                  refreshCooldownSeconds={refreshCooldownSeconds}
+                  settings={settings}
+                  onUpdateSetting={updateSetting}
+                />
+              )}
+            </div>
           </>
-        )}
-        {settingsOpen && (
-          <SettingsPanel
-            onRefresh={() => void fetchBusData()}
-            refreshLocked={refreshLocked}
-            isRefreshing={isRefreshing}
-            refreshCooldownSeconds={refreshCooldownSeconds}
-            settings={settings}
-            onUpdateSetting={updateSetting}
-          />
         )}
       </div>
     </div>
