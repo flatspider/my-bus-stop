@@ -19,6 +19,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [lastFetchAtMs, setLastFetchAtMs] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsClosing, setSettingsClosing] = useState(false)
   const [showTutorial, setShowTutorial] = useState(
     () => !localStorage.getItem('tutorialComplete')
   )
@@ -143,14 +144,24 @@ export default function Home() {
             <div className="cards__lower">
               {allCards.slice(1)}
               {settingsOpen && (
-                <SettingsPanel
-                  onRefresh={() => void fetchBusData()}
-                  refreshLocked={refreshLocked}
-                  isRefreshing={isRefreshing}
-                  refreshCooldownSeconds={refreshCooldownSeconds}
-                  settings={settings}
-                  onUpdateSetting={updateSetting}
-                />
+                <div
+                  className={settingsClosing ? "settings-closing" : undefined}
+                  onAnimationEnd={() => {
+                    if (settingsClosing) {
+                      setSettingsOpen(false)
+                      setSettingsClosing(false)
+                    }
+                  }}
+                >
+                  <SettingsPanel
+                    onRefresh={() => void fetchBusData()}
+                    refreshLocked={refreshLocked}
+                    isRefreshing={isRefreshing}
+                    refreshCooldownSeconds={refreshCooldownSeconds}
+                    settings={settings}
+                    onUpdateSetting={updateSetting}
+                  />
+                </div>
               )}
             </div>
           </>
@@ -162,6 +173,9 @@ export default function Home() {
           onClose={() => {
             localStorage.setItem('tutorialComplete', 'true')
             setShowTutorial(false)
+            if (settingsOpen) {
+              setSettingsClosing(true)
+            }
           }}
           onOpenSettings={() => setSettingsOpen(true)}
         />

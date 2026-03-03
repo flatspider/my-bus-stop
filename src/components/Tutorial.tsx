@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const STEPS = [
   {
     target: '[data-tutorial="default-stop"]',
-    text: "This is the default bus stop. Enter your bus stop code in Settings to change it.",
+    text: "This is your bus stop. Update your stop in Settings.",
     borderRadius: 16,
   },
   {
