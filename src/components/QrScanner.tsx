@@ -17,9 +17,9 @@ function extractStopCode(text: string): string | null {
         url.hostname === "bt.mta.info"
       ) {
         const code = url.searchParams.get("q");
-        if (code && /^\d{5,6}$/.test(code)) return code;
+        if (code && /^\d{6}$/.test(code)) return code;
 
-        const pathMatch = url.pathname.match(/(?:^|\/)(\d{6}|\d{5})(?:\/|$)/);
+        const pathMatch = url.pathname.match(/(?:^|\/)(\d{6})(?:\/|$)/);
         if (pathMatch) return pathMatch[1];
       }
     } catch {
@@ -40,10 +40,7 @@ function extractStopCode(text: string): string | null {
   const sixDigit = trimmed.match(/(?:^|\D)(\d{6})(?:\D|$)/);
   if (sixDigit) return sixDigit[1];
 
-  const fiveDigit = trimmed.match(/(?:^|\D)(\d{5})(?:\D|$)/);
-  if (fiveDigit) return fiveDigit[1];
-
-  if (/^\d{5,6}$/.test(trimmed)) return trimmed;
+  if (/^\d{6}$/.test(trimmed)) return trimmed;
   return null;
 }
 

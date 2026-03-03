@@ -9,6 +9,8 @@ import Tutorial from './components/Tutorial'
 import { useSettings } from './useSettings'
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from './stopConfig'
 
+type LayoutMode = 'singleHero' | 'topStack' | 'dense'
+
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>()
   const normalizedStopCode = stopCode?.trim() ?? ''
@@ -25,49 +27,66 @@ export default function StopPage() {
   const [showTutorial, setShowTutorial] = useState(
     () => !localStorage.getItem('tutorialComplete')
   )
-  const lastRequestAtRef = useRef(0)
-  const inFlightRequestRef = useRef<Promise<void> | null>(null)
+  const activeStopCodeRef = useRef(normalizedStopCode)
+  const lastRequestAtByStopRef = useRef<Record<string, number>>({})
+  const inFlightRequestRef = useRef<{ stopCode: string; promise: Promise<void> } | null>(null)
   const { settings, updateSetting } = useSettings()
+
+  useEffect(() => {
+    activeStopCodeRef.current = normalizedStopCode
+    setLoading(true)
+    setError(null)
+  }, [normalizedStopCode])
 
   const fetchBusData = useCallback(async () => {
     if (!isValidStopCode) return
 
-    if (inFlightRequestRef.current) {
-      return inFlightRequestRef.current
+    const inFlight = inFlightRequestRef.current
+    if (inFlight && inFlight.stopCode === normalizedStopCode) {
+      return inFlight.promise
     }
 
     const now = Date.now()
-    if (now - lastRequestAtRef.current < MIN_REQUEST_GAP_MS) {
+    const lastRequestAt = lastRequestAtByStopRef.current[normalizedStopCode] ?? 0
+    if (now - lastRequestAt < MIN_REQUEST_GAP_MS) {
       return
     }
 
-    lastRequestAtRef.current = now
+    lastRequestAtByStopRef.current[normalizedStopCode] = now
     setNextAllowedRefreshAt(now + MIN_REQUEST_GAP_MS)
     setIsRefreshing(true)
 
+    const requestStopCode = normalizedStopCode
     const request = (async () => {
       try {
-        const res = await fetch(`/api/bustime?q=${normalizedStopCode}`)
+        const res = await fetch(`/api/bustime?q=${requestStopCode}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
+        if (activeStopCodeRef.current !== requestStopCode) return
         setStopName(data.stopName)
         setRoutes(data.routes)
         setLastFetchAtMs(Date.now())
         setError(null)
       } catch (e) {
+        if (activeStopCodeRef.current !== requestStopCode) return
         setError(e instanceof Error ? e.message : 'Failed to fetch')
       } finally {
-        setLoading(false)
-        setIsRefreshing(false)
+        if (activeStopCodeRef.current === requestStopCode) {
+          setLoading(false)
+          setIsRefreshing(false)
+        }
       }
     })()
 
-    inFlightRequestRef.current = request
+    inFlightRequestRef.current = { stopCode: requestStopCode, promise: request }
 
     try {
       await request
     } finally {
-      inFlightRequestRef.current = null
+      const current = inFlightRequestRef.current
+      if (current && current.stopCode === requestStopCode) {
+        inFlightRequestRef.current = null
+      }
     }
   }, [isValidStopCode, normalizedStopCode])
 
@@ -97,29 +116,10 @@ export default function StopPage() {
   const isStale = lastFetchAtMs > 0 && (nowMs - lastFetchAtMs > STALE_DATA_THRESHOLD_MS)
   const staleSeconds = lastFetchAtMs > 0 ? Math.floor((nowMs - lastFetchAtMs) / 1000) : 0
 
-  const allCards = [
-    ...withArrivals.map((r) => (
-      <BusCard
-        key={`${r.route}-${r.direction}`}
-        data={r}
-        route={r.route}
-        showMinSuffix={settings.showMinSuffix}
-        showRouteName={settings.showRouteName}
-        showStopsAway={settings.showStopsAway}
-      />
-    )),
-    ...noArrivals.map((r) => (
-      <BusCard
-        key={`${r.route}-${r.direction}`}
-        data={r}
-        route={r.route}
-        showMinSuffix={settings.showMinSuffix}
-        showRouteName={settings.showRouteName}
-        showStopsAway={settings.showStopsAway}
-      />
-    )),
-  ]
-  const noData = !loading && allCards.length === 0
+  const allRoutes = [...withArrivals, ...noArrivals]
+  const busCount = allRoutes.length
+  const layoutMode: LayoutMode = busCount === 1 ? 'singleHero' : busCount >= 4 ? 'dense' : 'topStack'
+  const noData = !loading && busCount === 0
   const showSettingsPanel = settingsOpen || noData
 
   if (!isValidStopCode) {
@@ -143,7 +143,7 @@ export default function StopPage() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="cards">
+      <div className={`cards cards--${layoutMode}`}>
         {loading ? (
           <>
             <div className="loading">Loading...</div>
@@ -178,11 +178,28 @@ export default function StopPage() {
           </>
         ) : (
           <>
-            <div data-tutorial="card">
-              {allCards[0]}
+            <div className="cards__lead" data-tutorial="card">
+              <BusCard
+                data={allRoutes[0]}
+                route={allRoutes[0].route}
+                showMinSuffix={settings.showMinSuffix}
+                showRouteName={settings.showRouteName}
+                showStopsAway={settings.showStopsAway}
+                layoutVariant={layoutMode === 'singleHero' ? 'hero' : 'standard'}
+              />
             </div>
-            <div className="cards__lower">
-              {!settingsOpen && allCards.slice(1)}
+            <div className="cards__list">
+              {!settingsOpen && allRoutes.slice(1).map((r) => (
+                <BusCard
+                  key={`${r.route}-${r.direction}`}
+                  data={r}
+                  route={r.route}
+                  showMinSuffix={settings.showMinSuffix}
+                  showRouteName={settings.showRouteName}
+                  showStopsAway={settings.showStopsAway}
+                  layoutVariant={layoutMode === 'dense' ? 'compact' : 'standard'}
+                />
+              ))}
               {showSettingsPanel && (
                 <SettingsPanel
                   onRefresh={() => void fetchBusData()}
@@ -199,7 +216,7 @@ export default function StopPage() {
         )}
       </div>
 
-      {showTutorial && !loading && allCards.length > 0 && (
+      {showTutorial && !loading && busCount > 0 && (
         <Tutorial
           onClose={() => {
             localStorage.setItem('tutorialComplete', 'true')
