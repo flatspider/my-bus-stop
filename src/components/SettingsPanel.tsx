@@ -128,9 +128,12 @@ export default function SettingsPanel({
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
+                maxLength={6}
                 placeholder="Bus stop code"
                 value={stopCode}
-                onChange={(e) => setStopCode(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                }
                 onFocus={() => {
                   setTimeout(() => {
                     inputRef.current?.scrollIntoView({
