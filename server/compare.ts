@@ -3,11 +3,19 @@ import path from "node:path"
 import { normalizeVehicleId } from "./utils.ts"
 import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry } from "./types.ts"
 
-const LOG_PATH = path.join(process.cwd(), "data", "comparison-log.md")
-const JSONL_PATH = path.join(process.cwd(), "data", "snapshots.jsonl")
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data")
+const LOG_PATH = path.join(DATA_DIR, "comparison-log.md")
+const JSONL_PATH = path.join(DATA_DIR, "snapshots.jsonl")
+
+export { JSONL_PATH }
 
 const ETA_THRESHOLD = 20
 const STALE_THRESHOLD_S = 90
+
+// Known stop coordinates for ghost analysis distance calculations
+const STOP_COORDINATES: Record<string, { latitude: number; longitude: number }> = {
+  "402854": { latitude: 40.738982, longitude: -73.983129 },
+}
 
 export async function compareAndLog(
   stopCode: string,
@@ -140,9 +148,11 @@ Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-tim
   await appendFile(LOG_PATH, entry, "utf-8")
 
   // Write structured JSONL for analysis
+  const stopCoords = STOP_COORDINATES[stopCode]
   const snapshot: SnapshotEntry = {
     timestamp,
     stopCode,
+    ...(stopCoords && { stopLatitude: stopCoords.latitude, stopLongitude: stopCoords.longitude }),
     vehicles: snapshotVehicles,
   }
   await appendFile(JSONL_PATH, JSON.stringify(snapshot) + "\n", "utf-8")

@@ -65,5 +65,7 @@ export interface SnapshotVehicle {
 export interface SnapshotEntry {
   timestamp: string
   stopCode: string
+  stopLatitude?: number
+  stopLongitude?: number
   vehicles: SnapshotVehicle[]
 }

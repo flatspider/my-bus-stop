@@ -16,7 +16,10 @@
       "WebFetch(domain:github.com)",
       "Bash(bun remove:*)",
       "WebFetch(domain:www.goswift.ly)",
-      "WebFetch(domain:www.wgbh.org)"
+      "WebFetch(domain:www.wgbh.org)",
+      "Bash(python3:*)",
+      "Bash(bun:*)",
+      "WebFetch(domain:data.ny.gov)"
     ]
   }
 }
