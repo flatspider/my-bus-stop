@@ -50,6 +50,7 @@ export default function SettingsPanel({
   const [stopCode, setStopCode] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [hasFocusedStopInput, setHasFocusedStopInput] = useState(false);
   const [canUseQrScan, setCanUseQrScan] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -59,7 +60,8 @@ export default function SettingsPanel({
     const smallViewportMedia = window.matchMedia("(max-width: 900px)");
 
     const update = () => {
-      const touchCapable = coarsePointerMedia.matches || navigator.maxTouchPoints > 0;
+      const touchCapable =
+        coarsePointerMedia.matches || navigator.maxTouchPoints > 0;
       setCanUseQrScan(touchCapable && smallViewportMedia.matches);
     };
 
@@ -90,6 +92,7 @@ export default function SettingsPanel({
 
   const normalizedStopCode = stopCode.trim();
   const canGo = /^\d{6}$/.test(normalizedStopCode);
+  const showStopHelp = hasFocusedStopInput;
 
   function handleGo() {
     if (!canGo) return;
@@ -162,6 +165,7 @@ export default function SettingsPanel({
                   setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6))
                 }
                 onFocus={() => {
+                  setHasFocusedStopInput(true);
                   setTimeout(() => {
                     inputRef.current?.scrollIntoView({
                       behavior: "smooth",
@@ -180,39 +184,62 @@ export default function SettingsPanel({
                   }}
                   aria-label="Scan QR code"
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                     <circle cx="12" cy="13" r="4" />
                   </svg>
                 </button>
               )}
             </div>
-            <button className="settings-panel__go" type="submit" disabled={!canGo}>
+            <button
+              className="settings-panel__go"
+              type="submit"
+              disabled={!canGo}
+            >
               Go
             </button>
           </form>
-          <a
-            className="settings-help-link"
-            href="https://bustime.mta.info"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Where's my stop code?
-          </a>
-          {scanError && <p className="settings-panel__scan-error">{scanError}</p>}
+          {showStopHelp && (
+            <div className="settings-stop-help">
+              <span className="settings-stop-help__text">
+                Find this 6-digit code at your bus stop.
+              </span>
+              <a
+                className="settings-stop-help__link"
+                href="https://bustime.mta.info"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Learn where to find it
+              </a>
+            </div>
+          )}
+          {scanError && (
+            <p className="settings-panel__scan-error">{scanError}</p>
+          )}
         </div>
       </div>
 
-      {scannerOpen && createPortal(
-        <Suspense fallback={null}>
-          <QrScanner
-            onScan={handleScan}
-            onClose={() => setScannerOpen(false)}
-            onError={handleScanError}
-          />
-        </Suspense>,
-        document.body
-      )}
+      {scannerOpen &&
+        createPortal(
+          <Suspense fallback={null}>
+            <QrScanner
+              onScan={handleScan}
+              onClose={() => setScannerOpen(false)}
+              onError={handleScanError}
+            />
+          </Suspense>,
+          document.body,
+        )}
     </div>
   );
 }

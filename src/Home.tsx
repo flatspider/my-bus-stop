@@ -118,7 +118,7 @@ export default function Home() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-header__left">
+        <div className="app-header__left" data-tutorial="default-stop">
           <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
           {settings.showStopTitle && <span className="stop-name">3 AV / E 23 ST — Southbound</span>}
         </div>

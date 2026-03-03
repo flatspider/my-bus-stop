@@ -584,16 +584,40 @@ html.dark .status-dot--stale {
   object-fit: cover;
 }
 
-/* ── Settings Help Link ── */
-.settings-help-link {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-decoration: none;
-  text-align: center;
-  margin-top: -8px;
+/* ── Settings Stop Code Help ── */
+.settings-stop-help {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 
-.settings-help-link:hover {
+.settings-stop-help__text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.settings-stop-help__link {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-stop-help__link:hover {
+  color: var(--text);
+}
+
+.settings-stop-help__link:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.settings-stop-help__link:active {
   text-decoration: underline;
 }
 
