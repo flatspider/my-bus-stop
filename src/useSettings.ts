@@ -4,6 +4,7 @@ export interface Settings {
   showMinSuffix: boolean
   showRouteName: boolean
   showStopsAway: boolean
+  showStopTitle: boolean
   darkMode: boolean
 }
 
@@ -13,6 +14,7 @@ const DEFAULTS: Settings = {
   showMinSuffix: true,
   showRouteName: true,
   showStopsAway: false,
+  showStopTitle: true,
   darkMode: false,
 }
 

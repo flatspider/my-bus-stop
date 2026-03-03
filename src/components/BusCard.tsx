@@ -69,7 +69,7 @@ export default function BusCard({
         )}
         <span className="bus-card__minutes">{displayMinutes}</span>
         {showStopsAway && closest.stopsAway && (
-          <span className="bus-card__stops-away">{closest.stopsAway} stops</span>
+          <span className="bus-card__stops-away">{closest.stopsAway}</span>
         )}
         <span className="bus-card__next-gap">
           {gapMinutes != null && gapMinutes > 0 ? `+${gapMinutes} min` : 'none'}

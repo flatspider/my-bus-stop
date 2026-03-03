@@ -1,2 +1,3 @@
 export const AUTO_REFRESH_INTERVAL_MS = 30_000
 export const MIN_REQUEST_GAP_MS = 15_000
+export const STALE_DATA_THRESHOLD_MS = 70_000
