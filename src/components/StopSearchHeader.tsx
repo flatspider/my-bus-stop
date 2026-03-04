@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { fetchNearbyStops, searchStops } from '../stopSearchApi'
 import type { StopSearchResult } from '../types'
 
 const RECENT_STOPS_KEY = 'buswatch-stop-search-recents'
-const LOCATION_PROMPTED_KEY = 'buswatch-stop-search-location-prompted'
 const SEARCH_LIMIT = 5
 const NEARBY_LIMIT = 3
 const MAX_VISIBLE_RESULTS = 5
@@ -97,16 +97,6 @@ export default function StopSearchHeader({
   }, [])
 
   useEffect(() => {
-    if (!isExpanded) return
-
-    const timer = window.setTimeout(() => {
-      inputRef.current?.focus()
-    }, 40)
-
-    return () => window.clearTimeout(timer)
-  }, [isExpanded])
-
-  useEffect(() => {
     onExpandedChange?.(isExpanded)
   }, [isExpanded, onExpandedChange])
 
@@ -123,34 +113,6 @@ export default function StopSearchHeader({
     document.addEventListener('mousedown', onPointerDown)
     return () => document.removeEventListener('mousedown', onPointerDown)
   }, [isExpanded])
-
-  useEffect(() => {
-    if (!isExpanded) return
-    if (locationState === 'requesting' || locationState === 'granted' || locationState === 'denied') return
-    if (!supportsGeolocation) return
-
-    const prompted = localStorage.getItem(LOCATION_PROMPTED_KEY) === 'true'
-    if (prompted) return
-
-    localStorage.setItem(LOCATION_PROMPTED_KEY, 'true')
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setGeo({ lat: position.coords.latitude, lon: position.coords.longitude })
-        setLocationState('granted')
-        setStatusMessage('')
-      },
-      () => {
-        setLocationState('denied')
-        setStatusMessage('Location not enabled. You can still search any stop.')
-      },
-      {
-        enableHighAccuracy: false,
-        maximumAge: 120_000,
-        timeout: 10_000,
-      },
-    )
-  }, [isExpanded, locationState, supportsGeolocation])
 
   useEffect(() => {
     if (!geo || !isExpanded) return
@@ -214,8 +176,11 @@ export default function StopSearchHeader({
   }, [nearestStops, query, recents, searchResults])
 
   function handleOpenSearch() {
-    setIsExpanded(true)
-    setStatusMessage('')
+    flushSync(() => {
+      setIsExpanded(true)
+      setStatusMessage('')
+    })
+    inputRef.current?.focus({ preventScroll: true })
   }
 
   function closeSearch() {
