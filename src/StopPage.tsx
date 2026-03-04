@@ -28,6 +28,7 @@ export default function StopPage() {
   const [error, setError] = useState<string | null>(null)
   const [lastFetchAtMs, setLastFetchAtMs] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
   const [showTutorial, setShowTutorial] = useState(
     () => !localStorage.getItem('tutorialComplete')
   )
@@ -151,23 +152,30 @@ export default function StopPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const noDataMessage = error
+    ? 'Unable to fetch arrivals right now.'
+    : 'No live arrivals reported for this stop right now.'
+
   return (
     <div className="app">
-      <header className="app-header">
+      <header className={`app-header${searchExpanded ? ' app-header--search-active' : ''}`}>
         <div className="app-header__left" data-tutorial="default-stop">
           <StopSearchHeader
             statusNode={<StatusDot isStale={isStale} staleSeconds={staleSeconds} />}
             stopName={stopName}
             showStopTitle={settings.showStopTitle}
             onSelectStop={handleStopSelect}
+            onExpandedChange={setSearchExpanded}
           />
         </div>
-        <button className={`gear-btn${settingsOpen ? ' gear-btn--active' : ''}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+        {!searchExpanded && (
+          <button className={`gear-btn${settingsOpen ? ' gear-btn--active' : ''}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+        )}
       </header>
 
       {error && <div className="error">{error}</div>}
@@ -191,7 +199,7 @@ export default function StopPage() {
           </>
         ) : noData ? (
           <>
-            <div className="loading">No bus data found for this stop</div>
+            <div className="loading">{noDataMessage}</div>
             {showSettingsPanel && (
               <SettingsPanel
                 inline
@@ -223,7 +231,10 @@ export default function StopPage() {
             )}
             <div className="cards__list">
               {!settingsOpen && lowerCards.map((card) => (
-                <div key={card.id} className={getCardShellClassName(card.id)}>
+                <div
+                  key={card.id}
+                  className={getCardShellClassName(card.id)}
+                >
                   <BusCard
                     arrival={card.arrival}
                     route={card.route}

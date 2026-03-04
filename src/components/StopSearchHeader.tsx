@@ -5,14 +5,16 @@ import type { StopSearchResult } from '../types'
 
 const RECENT_STOPS_KEY = 'buswatch-stop-search-recents'
 const LOCATION_PROMPTED_KEY = 'buswatch-stop-search-location-prompted'
-const SEARCH_LIMIT = 8
+const SEARCH_LIMIT = 5
 const NEARBY_LIMIT = 3
+const MAX_VISIBLE_RESULTS = 5
 
 interface StopSearchHeaderProps {
   stopName: string
   showStopTitle: boolean
   statusNode: ReactNode
   onSelectStop: (code: string) => void
+  onExpandedChange?: (isExpanded: boolean) => void
 }
 
 interface GeoState {
@@ -68,6 +70,7 @@ export default function StopSearchHeader({
   showStopTitle,
   statusNode,
   onSelectStop,
+  onExpandedChange,
 }: StopSearchHeaderProps) {
   const supportsGeolocation = typeof navigator !== 'undefined' && 'geolocation' in navigator
   const [isExpanded, setIsExpanded] = useState(false)
@@ -102,6 +105,10 @@ export default function StopSearchHeader({
 
     return () => window.clearTimeout(timer)
   }, [isExpanded])
+
+  useEffect(() => {
+    onExpandedChange?.(isExpanded)
+  }, [isExpanded, onExpandedChange])
 
   useEffect(() => {
     if (!isExpanded) return
@@ -202,12 +209,18 @@ export default function StopSearchHeader({
 
   const dropdownResults = useMemo(() => {
     const normalizedQuery = query.trim()
-    if (normalizedQuery) return searchResults
-    return dedupeResults(nearestStops, recents)
+    if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS)
+    return dedupeResults(nearestStops, recents).slice(0, MAX_VISIBLE_RESULTS)
   }, [nearestStops, query, recents, searchResults])
 
   function handleOpenSearch() {
     setIsExpanded(true)
+    setStatusMessage('')
+  }
+
+  function closeSearch() {
+    setQuery('')
+    setIsExpanded(false)
     setStatusMessage('')
   }
 
@@ -218,9 +231,7 @@ export default function StopSearchHeader({
     })
 
     onSelectStop(stop.code)
-    setIsExpanded(false)
-    setQuery('')
-    setStatusMessage('')
+    closeSearch()
   }
 
   function requestLocationManually() {
@@ -268,7 +279,7 @@ export default function StopSearchHeader({
           {!showStopTitle && <span className="stop-search__fallback">Search stop</span>}
         </button>
       ) : (
-        <div className="stop-search__input-wrap">
+        <div className="stop-search__input-shell">
           <input
             ref={inputRef}
             className="stop-search__input"
@@ -280,14 +291,24 @@ export default function StopSearchHeader({
           />
           <button
             type="button"
-            className="stop-search__close"
-            onClick={() => {
-              setIsExpanded(false)
-              setQuery('')
-            }}
+            className="stop-search__close-inline"
+            onClick={closeSearch}
             aria-label="Close stop search"
           >
-            Cancel
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
           </button>
         </div>
       )}
@@ -333,7 +354,7 @@ export default function StopSearchHeader({
                   onClick={() => handleSelect(item)}
                 >
                   <span className="stop-search__result-name">{item.name}</span>
-                  <span className="stop-search__result-meta">Stop {item.code}</span>
+                  <span className="stop-search__result-meta" />
                 </button>
               ))}
             </div>
@@ -350,7 +371,7 @@ export default function StopSearchHeader({
                 >
                   <span className="stop-search__result-name">{item.name}</span>
                   <span className="stop-search__result-meta">
-                    {item.distanceMeters !== undefined ? formatDistance(item.distanceMeters) : `Stop ${item.code}`}
+                    {item.distanceMeters !== undefined ? formatDistance(item.distanceMeters) : ''}
                   </span>
                 </button>
               ))}
