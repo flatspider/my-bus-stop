@@ -122,7 +122,7 @@ export default function Tutorial({
     if (step === 0) return;
 
     const shouldOpenSettings = Boolean(STEPS[step].openSettings);
-    setInstantHide(shouldOpenSettings);
+    setInstantHide(true);
 
     // Hide first so spotlight/tooltip can move cleanly between targets.
     setVisible(false);
@@ -206,6 +206,8 @@ export default function Tutorial({
 
   function next() {
     if (step < STEPS.length - 1) {
+      setInstantHide(true);
+      setVisible(false);
       setStep(step + 1);
     } else {
       onClose();
