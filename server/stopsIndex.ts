@@ -3,18 +3,16 @@ import { fileURLToPath } from "node:url"
 import { readFile } from "node:fs/promises"
 import type {
   EnrichedStopsArtifactV1,
-  IndexedStop,
   SearchIndexArtifactV1,
   SearchIndexedStop,
   StopSearchResult,
 } from "./types.ts"
-import { buildRuntimeSearchIndex, buildSearchArtifactFromLegacyStops, type RuntimeSearchIndex } from "./search/index.ts"
+import { buildRuntimeSearchIndex, type RuntimeSearchIndex } from "./search/index.ts"
 import { normalizeText } from "./search/normalize.ts"
 import { parseIntersection } from "./search/parseQuery.ts"
 import { scoreSearchStop } from "./search/score.ts"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DEFAULT_INDEX_PATH = path.join(__dirname, "..", "data", "stops-index.json")
 const DEFAULT_SEARCH_INDEX_PATH = path.join(__dirname, "..", "data", "stops-search-index.v1.json")
 const DEFAULT_CORRECTIONS_PATH = path.join(__dirname, "..", "data", "search-corrections.json")
 const DEFAULT_ENRICHED_STOPS_PATH = path.join(__dirname, "..", "data", "stops-enriched.json")
@@ -25,11 +23,12 @@ const DEFAULT_NEARBY_LIMIT = 3
 const DEFAULT_NEARBY_RADIUS_METERS = 1609
 const DEBUG_QUERY_LIMIT = 5
 
-let cachedStopsLegacy: IndexedStop[] = []
 let cachedStopsV2: SearchIndexedStop[] = []
 let runtimeSearchIndex: RuntimeSearchIndex | null = null
 let correctionMap: Record<string, string> = {}
 let knownStopCodes = new Set<string>()
+let hasWarnedSearchUnavailable = false
+let hasWarnedNearbyUnavailable = false
 let enrichedDirectionByCode = new Map<string, {
   directionLabel: string
   directionShort: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
@@ -50,7 +49,7 @@ export interface NearbyOptions {
 }
 
 export interface SearchDebugResult {
-  engine: "v1" | "v2"
+  engine: "v2"
   query: string
   normalizedQuery: string
   candidateCount: number
@@ -73,43 +72,9 @@ export interface SearchDebugResult {
   results: StopSearchResult[]
 }
 
-function envFlag(name: string): boolean {
-  const value = process.env[name]
-  if (!value) return false
-  return value === "1" || value.toLowerCase() === "true" || value.toLowerCase() === "yes"
-}
-
-function isSearchV2Enabled(): boolean {
-  return envFlag("SEARCH_V2_ENABLED")
-}
-
-function isShadowCompareEnabled(): boolean {
-  return envFlag("SEARCH_V2_SHADOW_COMPARE")
-}
-
 function clampLimit(limit: number | undefined, fallback: number): number {
   if (limit === undefined || Number.isNaN(limit)) return fallback
   return Math.max(1, Math.min(MAX_LIMIT, Math.floor(limit)))
-}
-
-function normalizeV1(text: string): string {
-  return text
-    .toUpperCase()
-    .replace(/\bAVENUE\b/g, "AVE")
-    .replace(/\bSTREET\b/g, "ST")
-    .replace(/\bROAD\b/g, "RD")
-    .replace(/\bBOULEVARD\b/g, "BLVD")
-    .replace(/\bNORTHBOUND\b/g, "NB")
-    .replace(/\bSOUTHBOUND\b/g, "SB")
-    .replace(/\bEASTBOUND\b/g, "EB")
-    .replace(/\bWESTBOUND\b/g, "WB")
-    .replace(/[^A-Z0-9\s/]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function tokenizeV1(text: string): string[] {
-  return normalizeV1(text).split(" ").filter(Boolean)
 }
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -123,46 +88,6 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
       Math.sin(dLon / 2) * Math.sin(dLon / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
-}
-
-function tokenScoreV1(queryTokens: string[], stopTokens: string[]): number {
-  if (queryTokens.length === 0) return 0
-
-  let score = 0
-  for (const queryToken of queryTokens) {
-    let best = 0
-    for (const stopToken of stopTokens) {
-      if (stopToken === queryToken) {
-        best = Math.max(best, 16)
-        continue
-      }
-      if (stopToken.startsWith(queryToken)) {
-        best = Math.max(best, 10)
-        continue
-      }
-      if (stopToken.includes(queryToken)) {
-        best = Math.max(best, 5)
-      }
-    }
-    score += best
-  }
-
-  return score
-}
-
-function scoreStopV1(stop: IndexedStop, query: string, queryTokens: string[]): number {
-  if (!query) return 0
-
-  let score = 0
-  const normalized = stop.normalizedName
-
-  if (normalized === query) score += 120
-  else if (normalized.startsWith(query)) score += 80
-  else if (normalized.includes(query)) score += 40
-
-  score += tokenScoreV1(queryTokens, stop.normalizedName.split(" "))
-
-  return score
 }
 
 function formatResult(code: string, name: string, distanceMeters: number | undefined): StopSearchResult {
@@ -350,39 +275,14 @@ function parseEnrichedStopsArtifact(raw: unknown): EnrichedStopsArtifactV1 | nul
   }
 }
 
-export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<void> {
-  try {
-    const raw = await readFile(indexPath, "utf-8")
-    const parsed = JSON.parse(raw) as Array<Partial<IndexedStop>>
-
-    cachedStopsLegacy = parsed
-      .filter((entry): entry is IndexedStop => (
-        typeof entry.code === "string" &&
-        typeof entry.name === "string" &&
-        typeof entry.normalizedName === "string" &&
-        typeof entry.lat === "number" &&
-        typeof entry.lon === "number"
-      ))
-      .map((entry) => ({
-        code: entry.code,
-        name: entry.name,
-        normalizedName: normalizeV1(entry.normalizedName),
-        lat: entry.lat,
-        lon: entry.lon,
-      }))
-
-    console.log(`[stops] Loaded ${cachedStopsLegacy.length} legacy indexed stops from ${indexPath}`)
-  } catch (error) {
-    cachedStopsLegacy = []
-    console.error(`[stops] Failed to load legacy stop index at ${indexPath}:`, error)
-  }
-
+export async function loadStopsIndex(): Promise<void> {
   try {
     const rawCorrections = await readFile(DEFAULT_CORRECTIONS_PATH, "utf-8")
     correctionMap = parseCorrections(JSON.parse(rawCorrections))
     console.log(`[stops] Loaded ${Object.keys(correctionMap).length} search corrections from ${DEFAULT_CORRECTIONS_PATH}`)
-  } catch {
+  } catch (error) {
     correctionMap = {}
+    console.warn(`[stops] Search corrections unavailable at ${DEFAULT_CORRECTIONS_PATH}:`, error)
   }
 
   try {
@@ -403,9 +303,11 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
       console.log(`[stops] Loaded enriched direction labels for ${enrichedDirectionByCode.size} stops from ${DEFAULT_ENRICHED_STOPS_PATH}`)
     } else {
       enrichedDirectionByCode = new Map()
+      console.warn(`[stops] Enriched stop artifact at ${DEFAULT_ENRICHED_STOPS_PATH} was invalid; direction metadata disabled.`)
     }
-  } catch {
+  } catch (error) {
     enrichedDirectionByCode = new Map()
+    console.warn(`[stops] Enriched stop artifact unavailable at ${DEFAULT_ENRICHED_STOPS_PATH}:`, error)
   }
 
   try {
@@ -414,21 +316,15 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
     if (parsed) {
       cachedStopsV2 = parsed.stops
       runtimeSearchIndex = buildRuntimeSearchIndex(cachedStopsV2)
+      hasWarnedSearchUnavailable = false
+      hasWarnedNearbyUnavailable = false
       rebuildKnownStopCodes()
       console.log(`[stops] Loaded ${cachedStopsV2.length} v2 indexed stops from ${DEFAULT_SEARCH_INDEX_PATH}`)
       return
     }
-  } catch {
-    // Fall through to legacy-to-v2 conversion.
-  }
-
-  if (cachedStopsLegacy.length > 0) {
-    const fallbackArtifact = buildSearchArtifactFromLegacyStops(cachedStopsLegacy)
-    cachedStopsV2 = fallbackArtifact.stops
-    runtimeSearchIndex = buildRuntimeSearchIndex(cachedStopsV2)
-    rebuildKnownStopCodes()
-    console.log(`[stops] Built fallback v2 index from ${cachedStopsLegacy.length} legacy stops`)
-    return
+    throw new Error("Search artifact JSON did not match expected schema")
+  } catch (error) {
+    console.error(`[stops] Failed to load v2 stop search index at ${DEFAULT_SEARCH_INDEX_PATH}:`, error)
   }
 
   cachedStopsV2 = []
@@ -439,9 +335,6 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
 
 function rebuildKnownStopCodes(): void {
   const next = new Set<string>()
-  for (const stop of cachedStopsLegacy) {
-    next.add(stop.code)
-  }
   for (const stop of cachedStopsV2) {
     next.add(stop.code)
   }
@@ -457,52 +350,7 @@ export function stopCodeExists(stopCode: string): boolean {
 }
 
 export function getStopsIndexCount(): number {
-  if (runtimeSearchIndex) return runtimeSearchIndex.stops.length
-  return cachedStopsLegacy.length
-}
-
-function searchStopsV1(query: string, options: SearchOptions = {}): StopSearchResult[] {
-  const normalizedQuery = normalizeV1(query)
-  if (!normalizedQuery) return []
-
-  const queryTokens = tokenizeV1(normalizedQuery)
-  const limit = clampLimit(options.limit, DEFAULT_SEARCH_LIMIT)
-  const hasLocation = options.lat !== undefined && options.lon !== undefined
-
-  const ranked = cachedStopsLegacy
-    .map((stop) => {
-      const textScore = scoreStopV1(stop, normalizedQuery, queryTokens)
-      if (textScore <= 0) return null
-
-      const distanceMeters = hasLocation
-        ? haversineMeters(options.lat as number, options.lon as number, stop.lat, stop.lon)
-        : undefined
-
-      const proximityScore = distanceMeters !== undefined
-        ? Math.max(0, 12 - (distanceMeters / 2500))
-        : 0
-
-      return {
-        stop,
-        textScore,
-        proximityScore,
-        distanceMeters,
-      }
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-
-  ranked.sort((a, b) => {
-    const aScore = a.textScore + a.proximityScore
-    const bScore = b.textScore + b.proximityScore
-
-    if (bScore !== aScore) return bScore - aScore
-    if (a.distanceMeters !== undefined && b.distanceMeters !== undefined && a.distanceMeters !== b.distanceMeters) {
-      return a.distanceMeters - b.distanceMeters
-    }
-    return a.stop.code.localeCompare(b.stop.code)
-  })
-
-  return ranked.slice(0, limit).map((entry) => formatResult(entry.stop.code, entry.stop.name, entry.distanceMeters))
+  return cachedStopsV2.length
 }
 
 function postingsForToken(index: RuntimeSearchIndex, queryToken: string): number[] {
@@ -575,19 +423,29 @@ function buildV2CandidateSet(index: RuntimeSearchIndex, tokens: string[], inters
   return candidates
 }
 
-function compareTopCodes(left: StopSearchResult[], right: StopSearchResult[], topN = 3): boolean {
-  const l = left.slice(0, topN).map((item) => item.code).join(",")
-  const r = right.slice(0, topN).map((item) => item.code).join(",")
-  return l === r
-}
-
 function searchStopsV2Detailed(query: string, options: SearchOptions = {}): SearchDebugResult {
   const index = runtimeSearchIndex
   const normalized = normalizeText(query, { corrections: correctionMap })
   const parsedIntersection = parseIntersection(normalized.tokens)
   const limit = clampLimit(options.limit, DEFAULT_SEARCH_LIMIT)
 
-  if (!index || !normalized.normalized) {
+  if (!index) {
+    if (!hasWarnedSearchUnavailable) {
+      hasWarnedSearchUnavailable = true
+      console.error("[stops] Search V2 index unavailable. Returning empty search results.")
+    }
+    return {
+      engine: "v2",
+      query,
+      normalizedQuery: normalized.normalized,
+      candidateCount: 0,
+      parsedIntersection,
+      topScores: [],
+      results: [],
+    }
+  }
+
+  if (!normalized.normalized) {
     return {
       engine: "v2",
       query,
@@ -664,37 +522,11 @@ function searchStopsV2Detailed(query: string, options: SearchOptions = {}): Sear
 }
 
 export function searchStopsWithDebug(query: string, options: SearchOptions = {}): SearchDebugResult {
-  if (isSearchV2Enabled() && runtimeSearchIndex) {
-    return searchStopsV2Detailed(query, options)
-  }
-
-  const normalizedQuery = normalizeV1(query)
-  return {
-    engine: "v1",
-    query,
-    normalizedQuery,
-    candidateCount: cachedStopsLegacy.length,
-    parsedIntersection: null,
-    topScores: [],
-    results: searchStopsV1(query, options),
-  }
+  return searchStopsV2Detailed(query, options)
 }
 
 export function searchStops(query: string, options: SearchOptions = {}): StopSearchResult[] {
-  if (isSearchV2Enabled() && runtimeSearchIndex) {
-    const v2 = searchStopsV2Detailed(query, options)
-    if (isShadowCompareEnabled()) {
-      const v1Results = searchStopsV1(query, options)
-      if (!compareTopCodes(v2.results, v1Results)) {
-        console.log(
-          `[stops][shadow] q="${query}" v2=${v2.results.slice(0, 3).map((item) => item.code).join(",")} v1=${v1Results.slice(0, 3).map((item) => item.code).join(",")}`,
-        )
-      }
-    }
-    return v2.results
-  }
-
-  return searchStopsV1(query, options)
+  return searchStopsV2Detailed(query, options).results
 }
 
 export function nearbyStops(lat: number, lon: number, options: NearbyOptions = {}): StopSearchResult[] {
@@ -703,17 +535,15 @@ export function nearbyStops(lat: number, lon: number, options: NearbyOptions = {
     : DEFAULT_NEARBY_RADIUS_METERS
   const limit = clampLimit(options.limit, DEFAULT_NEARBY_LIMIT)
 
-  const sourceStops = cachedStopsLegacy.length > 0
-    ? cachedStopsLegacy
-    : cachedStopsV2.map((stop) => ({
-      code: stop.code,
-      name: stop.name,
-      normalizedName: normalizeV1(stop.canonical),
-      lat: stop.lat,
-      lon: stop.lon,
-    }))
+  if (cachedStopsV2.length === 0) {
+    if (!hasWarnedNearbyUnavailable) {
+      hasWarnedNearbyUnavailable = true
+      console.error("[stops] Nearby search index unavailable. Returning empty nearby results.")
+    }
+    return []
+  }
 
-  const results = sourceStops
+  const results = cachedStopsV2
     .map((stop) => {
       const distanceMeters = haversineMeters(lat, lon, stop.lat, stop.lon)
       return { stop, distanceMeters }

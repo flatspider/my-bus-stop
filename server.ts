@@ -167,9 +167,13 @@ async function pollOnce() {
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  loadStopsIndex().catch((err) => {
-    console.error("[stops] Startup load failed:", err);
-  });
+  loadStopsIndex()
+    .then(() => {
+      console.log(`[stops] Search engine: V2-only (${getStopsIndexCount()} indexed stops loaded)`);
+    })
+    .catch((err) => {
+      console.error("[stops] Startup load failed:", err);
+    });
 
   if (config.mode === "compare") {
     console.log(`[poll] Starting background polling every ${POLL_INTERVAL_MS / 1000}s for stop ${POLL_STOP}`);
