@@ -119,6 +119,7 @@ app.get("/{*splat}", (_req, res) => {
 // --- Background Polling ---
 const POLL_STOP = "402854";
 const POLL_INTERVAL_MS = 60_000; // 1 minute
+let pollInterval: NodeJS.Timeout | null = null;
 
 async function pollOnce() {
   if (!config.apiKey) return;
@@ -138,7 +139,7 @@ async function pollOnce() {
   }
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   loadStopsIndex().catch((err) => {
     console.error("[stops] Startup load failed:", err);
@@ -147,6 +148,40 @@ app.listen(PORT, () => {
   if (config.mode === "compare") {
     console.log(`[poll] Starting background polling every ${POLL_INTERVAL_MS / 1000}s for stop ${POLL_STOP}`);
     pollOnce(); // immediate first poll
-    setInterval(pollOnce, POLL_INTERVAL_MS);
+    pollInterval = setInterval(pollOnce, POLL_INTERVAL_MS);
   }
 });
+
+let isShuttingDown = false;
+
+function shutdown(signal: NodeJS.Signals) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`[shutdown] Received ${signal}; stopping server...`);
+
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+
+  const forceExitTimer = setTimeout(() => {
+    console.error("[shutdown] Timed out waiting for server close; forcing exit.");
+    process.exit(1);
+  }, 10_000);
+  forceExitTimer.unref();
+
+  server.close((err) => {
+    clearTimeout(forceExitTimer);
+    if (err) {
+      console.error("[shutdown] Error closing server:", err);
+      process.exit(1);
+      return;
+    }
+    console.log("[shutdown] Server closed cleanly.");
+    process.exit(0);
+  });
+}
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
