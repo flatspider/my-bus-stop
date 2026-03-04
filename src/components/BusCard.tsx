@@ -6,8 +6,51 @@ const ROUTE_COLORS: Record<string, string> = {
   M103: "#B933AD",
 };
 
-function getRouteColor(route: string): string {
-  return ROUTE_COLORS[route] ?? "#1a1a1a";
+function hexToRgb(hex: string): [number, number, number] | null {
+  const normalized = hex.trim();
+  const match = normalized.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return null;
+  const value = match[1];
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+
+function channelToLinear(channel: number): number {
+  const normalized = channel / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance([r, g, b]: [number, number, number]): number {
+  return (
+    0.2126 * channelToLinear(r) +
+    0.7152 * channelToLinear(g) +
+    0.0722 * channelToLinear(b)
+  );
+}
+
+function contrastRatio(foregroundHex: string, backgroundHex: string): number {
+  const fg = hexToRgb(foregroundHex);
+  const bg = hexToRgb(backgroundHex);
+  if (!fg || !bg) return 1;
+  const fgLum = relativeLuminance(fg);
+  const bgLum = relativeLuminance(bg);
+  const lighter = Math.max(fgLum, bgLum);
+  const darker = Math.min(fgLum, bgLum);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function getRouteColor(route: string, darkMode: boolean): string {
+  const fallback = darkMode ? "#e5e5e5" : "#1a1a1a";
+  const routeColor = ROUTE_COLORS[route] ?? fallback;
+  const background = darkMode ? "#1e1e1e" : "#ffffff";
+  return contrastRatio(routeColor, background) >= 3
+    ? routeColor
+    : fallback;
 }
 
 interface BusCardProps {
@@ -27,7 +70,10 @@ export default function BusCard({
   showStopsAway = false,
   hideVehicleStatusDot = false,
 }: BusCardProps) {
-  const color = getRouteColor(route);
+  const darkMode =
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+  const color = getRouteColor(route, darkMode);
   const routeName = route;
 
   const handleCardClick = () => {
