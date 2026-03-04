@@ -203,7 +203,7 @@ export default function StopPage() {
       <header
         className={`app-header${searchExpanded ? " app-header--search-active" : ""}`}
       >
-        <div className="app-header__left" data-tutorial="default-stop">
+        <div className="app-header__left">
           <StopSearchHeader
             statusNode={
               <StatusDot
@@ -232,6 +232,7 @@ export default function StopPage() {
               className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`}
               onClick={() => setSettingsOpen((prev) => !prev)}
               aria-label="Settings"
+              data-tutorial="settings-gear"
             >
               <svg
                 width="18"

@@ -788,6 +788,27 @@ html.dark .bus-card__vehicle-dot--fallback {
   will-change: top, left, width, height;
 }
 
+.tutorial-spotlight--secondary {
+  z-index: 1001;
+  pointer-events: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.88);
+  background: transparent;
+  transition:
+    top 0.22s ease,
+    left 0.22s ease,
+    width 0.22s ease,
+    height 0.22s ease,
+    border-radius 0.22s ease;
+  will-change: top, left, width, height;
+}
+
+.tutorial-cutout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
 .tutorial-tooltip {
   z-index: 1001;
   background: var(--card-bg);
