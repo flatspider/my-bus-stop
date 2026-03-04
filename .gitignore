@@ -24,6 +24,7 @@ dist-ssr
 *.sw?
 
 # Comparison logs
+data/
 data/comparison-log.md
 data/snapshots.jsonl
 data/ghost-report.md

@@ -230,7 +230,7 @@ body {
   padding: 9px 10px;
   text-align: left;
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   cursor: pointer;
@@ -244,16 +244,39 @@ body {
   background: rgba(128, 128, 128, 0.12);
 }
 
+.stop-search__result-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stop-search__result-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .stop-search__result-name {
   font-size: 13px;
   line-height: 1.35;
   color: var(--text);
 }
 
+.stop-search__result-direction {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .stop-search__result-meta {
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+  padding-top: 2px;
 }
 
 .stop-search__empty,

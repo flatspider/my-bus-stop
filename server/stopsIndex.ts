@@ -1,7 +1,13 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { readFile } from "node:fs/promises"
-import type { IndexedStop, SearchIndexArtifactV1, SearchIndexedStop, StopSearchResult } from "./types.ts"
+import type {
+  EnrichedStopsArtifactV1,
+  IndexedStop,
+  SearchIndexArtifactV1,
+  SearchIndexedStop,
+  StopSearchResult,
+} from "./types.ts"
 import { buildRuntimeSearchIndex, buildSearchArtifactFromLegacyStops, type RuntimeSearchIndex } from "./search/index.ts"
 import { normalizeText } from "./search/normalize.ts"
 import { parseIntersection } from "./search/parseQuery.ts"
@@ -11,6 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEFAULT_INDEX_PATH = path.join(__dirname, "..", "data", "stops-index.json")
 const DEFAULT_SEARCH_INDEX_PATH = path.join(__dirname, "..", "data", "stops-search-index.v1.json")
 const DEFAULT_CORRECTIONS_PATH = path.join(__dirname, "..", "data", "search-corrections.json")
+const DEFAULT_ENRICHED_STOPS_PATH = path.join(__dirname, "..", "data", "stops-enriched.json")
 
 const MAX_LIMIT = 10
 const DEFAULT_SEARCH_LIMIT = 8
@@ -22,6 +29,12 @@ let cachedStopsLegacy: IndexedStop[] = []
 let cachedStopsV2: SearchIndexedStop[] = []
 let runtimeSearchIndex: RuntimeSearchIndex | null = null
 let correctionMap: Record<string, string> = {}
+let enrichedDirectionByCode = new Map<string, {
+  directionLabel: string
+  directionShort: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
+  directionConfidence: "high" | "medium" | "low"
+  directionSource: "trip+cardinal" | "cardinal" | "trip" | "none"
+}>()
 
 export interface SearchOptions {
   lat?: number
@@ -152,14 +165,21 @@ function scoreStopV1(stop: IndexedStop, query: string, queryTokens: string[]): n
 }
 
 function formatResult(code: string, name: string, distanceMeters: number | undefined): StopSearchResult {
+  const directionMeta = enrichedDirectionByCode.get(code)
+
   if (distanceMeters === undefined) {
-    return { code, name }
+    return {
+      code,
+      name,
+      ...(directionMeta ?? {}),
+    }
   }
 
   return {
     code,
     name,
     distanceMeters: Math.round(distanceMeters),
+    ...(directionMeta ?? {}),
   }
 }
 
@@ -287,6 +307,48 @@ function parseV2Artifact(raw: unknown): SearchIndexArtifactV1 | null {
   }
 }
 
+function parseEnrichedStopsArtifact(raw: unknown): EnrichedStopsArtifactV1 | null {
+  if (!raw || typeof raw !== "object") return null
+  const maybe = raw as Partial<EnrichedStopsArtifactV1>
+  if (maybe.version !== 1) return null
+  if (!Array.isArray(maybe.stops)) return null
+
+  const validDirections = new Set(["NB", "SB", "EB", "WB", "VAR", "UNK"])
+  const validConfidences = new Set(["high", "medium", "low"])
+  const validSources = new Set(["trip+cardinal", "cardinal", "trip", "none"])
+
+  const stops = maybe.stops
+    .filter((entry): entry is EnrichedStopsArtifactV1["stops"][number] => {
+      if (!entry || typeof entry !== "object") return false
+      const stop = entry as Partial<EnrichedStopsArtifactV1["stops"][number]>
+      return (
+        typeof stop.code === "string" &&
+        typeof stop.directionLabel === "string" &&
+        typeof stop.directionShort === "string" &&
+        validDirections.has(stop.directionShort) &&
+        typeof stop.directionConfidence === "string" &&
+        validConfidences.has(stop.directionConfidence) &&
+        typeof stop.directionSource === "string" &&
+        validSources.has(stop.directionSource)
+      )
+    })
+    .map((entry) => ({
+      code: entry.code,
+      directionLabel: entry.directionLabel,
+      directionShort: entry.directionShort,
+      directionConfidence: entry.directionConfidence,
+      directionSource: entry.directionSource,
+    }))
+
+  return {
+    version: 1,
+    generatedAt: typeof maybe.generatedAt === "string" ? maybe.generatedAt : new Date().toISOString(),
+    gtfsRoot: typeof maybe.gtfsRoot === "string" ? maybe.gtfsRoot : "unknown",
+    stopCount: typeof maybe.stopCount === "number" ? maybe.stopCount : stops.length,
+    stops,
+  }
+}
+
 export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<void> {
   try {
     const raw = await readFile(indexPath, "utf-8")
@@ -320,6 +382,29 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
     console.log(`[stops] Loaded ${Object.keys(correctionMap).length} search corrections from ${DEFAULT_CORRECTIONS_PATH}`)
   } catch {
     correctionMap = {}
+  }
+
+  try {
+    const rawEnriched = await readFile(DEFAULT_ENRICHED_STOPS_PATH, "utf-8")
+    const parsed = parseEnrichedStopsArtifact(JSON.parse(rawEnriched))
+    if (parsed) {
+      enrichedDirectionByCode = new Map(
+        parsed.stops.map((stop) => [
+          stop.code,
+          {
+            directionLabel: stop.directionLabel,
+            directionShort: stop.directionShort,
+            directionConfidence: stop.directionConfidence,
+            directionSource: stop.directionSource,
+          },
+        ]),
+      )
+      console.log(`[stops] Loaded enriched direction labels for ${enrichedDirectionByCode.size} stops from ${DEFAULT_ENRICHED_STOPS_PATH}`)
+    } else {
+      enrichedDirectionByCode = new Map()
+    }
+  } catch {
+    enrichedDirectionByCode = new Map()
   }
 
   try {

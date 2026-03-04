@@ -65,6 +65,53 @@ function dedupeResults(primary: StopSearchResult[], secondary: StopSearchResult[
   return merged
 }
 
+function formatStopName(raw: string): string {
+  const upperTokens = new Set([
+    'AV', 'ST', 'RD', 'BLVD', 'DR', 'PL', 'LN', 'PKWY',
+    'NB', 'SB', 'EB', 'WB', 'E', 'W', 'N', 'S',
+  ])
+
+  const withDelimiters = raw
+    .replace(/\//g, ' / ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+
+  return withDelimiters
+    .split(' ')
+    .map((token) => {
+      if (!token) return ''
+      if (token === '/' || token === '-' || token === '&') return token
+      if (/^\d+$/.test(token)) return token
+
+      const upper = token.toUpperCase()
+      if (upperTokens.has(upper)) return upper
+
+      return token.charAt(0).toUpperCase() + token.slice(1)
+    })
+    .join(' ')
+    .replace(/\s+\/\s+/g, ' / ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractDirectionLabel(raw: string): string | null {
+  const text = raw.toUpperCase()
+  if (text.includes('NORTHBOUND') || /\bNB\b/.test(text)) return 'Northbound'
+  if (text.includes('SOUTHBOUND') || /\bSB\b/.test(text)) return 'Southbound'
+  if (text.includes('EASTBOUND') || /\bEB\b/.test(text)) return 'Eastbound'
+  if (text.includes('WESTBOUND') || /\bWB\b/.test(text)) return 'Westbound'
+  if (text.includes('UPTOWN')) return 'Uptown'
+  if (text.includes('DOWNTOWN')) return 'Downtown'
+  return null
+}
+
+function displayDirection(item: StopSearchResult): string | null {
+  const direction = item.directionLabel ?? extractDirectionLabel(item.name)
+  if (!direction || direction === 'Unknown direction') return null
+  return direction
+}
+
 export default function StopSearchHeader({
   stopName,
   showStopTitle,
@@ -301,7 +348,14 @@ export default function StopSearchHeader({
                   key={`near-${item.code}`}
                   onClick={() => handleSelect(item)}
                 >
-                  <span className="stop-search__result-name">{item.name}</span>
+                  <span className="stop-search__result-main">
+                    <span className="stop-search__result-line">
+                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      {displayDirection(item) && (
+                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                      )}
+                    </span>
+                  </span>
                   <span className="stop-search__result-meta">{formatDistance(item.distanceMeters)}</span>
                 </button>
               ))}
@@ -318,7 +372,14 @@ export default function StopSearchHeader({
                   key={`recent-${item.code}`}
                   onClick={() => handleSelect(item)}
                 >
-                  <span className="stop-search__result-name">{item.name}</span>
+                  <span className="stop-search__result-main">
+                    <span className="stop-search__result-line">
+                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      {displayDirection(item) && (
+                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                      )}
+                    </span>
+                  </span>
                   <span className="stop-search__result-meta" />
                 </button>
               ))}
@@ -334,7 +395,14 @@ export default function StopSearchHeader({
                   key={`search-${item.code}`}
                   onClick={() => handleSelect(item)}
                 >
-                  <span className="stop-search__result-name">{item.name}</span>
+                  <span className="stop-search__result-main">
+                    <span className="stop-search__result-line">
+                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      {displayDirection(item) && (
+                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                      )}
+                    </span>
+                  </span>
                   <span className="stop-search__result-meta">
                     {item.distanceMeters !== undefined ? formatDistance(item.distanceMeters) : ''}
                   </span>
