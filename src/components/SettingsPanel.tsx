@@ -12,6 +12,7 @@ interface SettingsPanelProps {
   isRefreshing: boolean;
   refreshCooldownSeconds: number;
   settings: Settings;
+  tutorialHighlightsStopInput?: boolean;
   inline?: boolean;
   onNavigateToStop?: () => void;
   onUpdateSetting: <K extends keyof Settings>(
@@ -48,6 +49,7 @@ export default function SettingsPanel({
   isRefreshing,
   refreshCooldownSeconds,
   settings,
+  tutorialHighlightsStopInput = false,
   inline = false,
   onNavigateToStop,
   onUpdateSetting,
@@ -262,7 +264,7 @@ export default function SettingsPanel({
               )}
             </div>
             <button
-              className="settings-panel__go"
+              className={`settings-panel__go${tutorialHighlightsStopInput ? " settings-panel__go--tutorial-active" : ""}`}
               type="submit"
               disabled={!canGo || isValidatingStop}
             >

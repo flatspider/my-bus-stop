@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 const MOBILE_BREAKPOINT_PX = 600;
 const VIEWPORT_GUTTER_PX = 12;
@@ -34,7 +34,7 @@ const STEPS = [
   },
   {
     target: '[data-tutorial="stop-input"]',
-    text: "Scan or enter your 6-digit stop code to track your stop.",
+    text: "In settings, scan or enter your 6-digit stop code to track your stop.",
     borderRadius: 16,
     openSettings: true,
     secondaryTarget: '[data-tutorial="settings-gear"]',
@@ -44,6 +44,7 @@ const STEPS = [
 interface Props {
   onClose: () => void;
   onOpenSettings: () => void;
+  onStepChange?: (step: number) => void;
 }
 
 interface SpotInsets {
@@ -90,7 +91,11 @@ function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
   return DEFAULT_SPOT_INSETS;
 }
 
-export default function Tutorial({ onClose, onOpenSettings }: Props) {
+export default function Tutorial({
+  onClose,
+  onOpenSettings,
+  onStepChange,
+}: Props) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [secondaryRect, setSecondaryRect] = useState<DOMRect | null>(null);
@@ -109,6 +114,11 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
 
   // Handle step transitions — only depends on `step`
   useEffect(() => {
+    onStepChange?.(step);
+  }, [onStepChange, step]);
+
+  // Handle step transitions — only depends on `step`
+  useLayoutEffect(() => {
     if (step === 0) return;
 
     const shouldOpenSettings = Boolean(STEPS[step].openSettings);
@@ -358,7 +368,10 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
             />
           </svg>
           {secondarySpotStyle && (
-            <div className="tutorial-spotlight--secondary" style={secondarySpotStyle} />
+            <div
+              className="tutorial-spotlight--secondary"
+              style={secondarySpotStyle}
+            />
           )}
         </>
       ) : (

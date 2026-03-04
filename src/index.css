@@ -642,6 +642,12 @@ html.dark .bus-card__vehicle-dot--fallback {
   cursor: not-allowed;
 }
 
+.settings-panel__go--tutorial-active:disabled {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  opacity: 1;
+}
+
 .settings-panel__refresh {
   background: var(--btn-bg);
   color: var(--btn-text);

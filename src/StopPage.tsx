@@ -38,6 +38,7 @@ export default function StopPage() {
   const [showTutorial, setShowTutorial] = useState(
     () => !localStorage.getItem("tutorialComplete"),
   );
+  const [tutorialStep, setTutorialStep] = useState(0);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
   const inFlightRequestRef = useRef<{
@@ -197,6 +198,7 @@ export default function StopPage() {
   const noDataMessage = error
     ? "Unable to fetch arrivals right now."
     : "No live arrivals reported for this stop right now.";
+  const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
 
   return (
     <div className="app">
@@ -266,6 +268,7 @@ export default function StopPage() {
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
                 settings={settings}
+                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                 onNavigateToStop={() => setSettingsOpen(false)}
                 onUpdateSetting={updateSetting}
               />
@@ -282,6 +285,7 @@ export default function StopPage() {
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
                 settings={settings}
+                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                 onNavigateToStop={() => setSettingsOpen(false)}
                 onUpdateSetting={updateSetting}
               />
@@ -325,6 +329,7 @@ export default function StopPage() {
                     isRefreshing={isRefreshing}
                     refreshCooldownSeconds={refreshCooldownSeconds}
                     settings={settings}
+                    tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                     onNavigateToStop={() => setSettingsOpen(false)}
                     onUpdateSetting={updateSetting}
                   />
@@ -349,9 +354,11 @@ export default function StopPage() {
           onClose={() => {
             localStorage.setItem("tutorialComplete", "true");
             setShowTutorial(false);
+            setTutorialStep(0);
             setSettingsOpen(false);
           }}
           onOpenSettings={() => setSettingsOpen(true)}
+          onStepChange={setTutorialStep}
         />
       )}
     </div>
