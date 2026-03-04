@@ -1,5 +1,5 @@
-## Bus Watch
+## Bauhaus Bus
 
-This is an app that monitors a single bus stop in Manhattan.
+This is an app that beautifully displays your bus stop.
 
-If you want to see your bus stop, input the Bus Stop Number in the bottom of the page to view your own simplified update page.
+Tap the bus stop in the top left corner to search for your bus stop, or go through settings to scan a QR code at your bus stop.

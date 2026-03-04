@@ -1,0 +1,58 @@
+[
+  {
+    "code": "402854",
+    "name": "3 AV / E 23 ST - Southbound",
+    "normalizedName": "3 AV / E 23 ST SOUTHBOUND",
+    "lat": 40.738982,
+    "lon": -73.983129
+  },
+  {
+    "code": "402855",
+    "name": "3 AV / E 24 ST - Southbound",
+    "normalizedName": "3 AV / E 24 ST SOUTHBOUND",
+    "lat": 40.740031,
+    "lon": -73.982657
+  },
+  {
+    "code": "402853",
+    "name": "3 AV / E 22 ST - Southbound",
+    "normalizedName": "3 AV / E 22 ST SOUTHBOUND",
+    "lat": 40.737882,
+    "lon": -73.983552
+  },
+  {
+    "code": "401946",
+    "name": "2 AV / E 23 ST - Northbound",
+    "normalizedName": "2 AV / E 23 ST NORTHBOUND",
+    "lat": 40.738875,
+    "lon": -73.980842
+  },
+  {
+    "code": "401947",
+    "name": "2 AV / E 24 ST - Northbound",
+    "normalizedName": "2 AV / E 24 ST NORTHBOUND",
+    "lat": 40.739912,
+    "lon": -73.980421
+  },
+  {
+    "code": "404096",
+    "name": "1 AV / E 14 ST - Southbound",
+    "normalizedName": "1 AV / E 14 ST SOUTHBOUND",
+    "lat": 40.731694,
+    "lon": -73.982268
+  },
+  {
+    "code": "404104",
+    "name": "1 AV / E 23 ST - Northbound",
+    "normalizedName": "1 AV / E 23 ST NORTHBOUND",
+    "lat": 40.737866,
+    "lon": -73.977409
+  },
+  {
+    "code": "401503",
+    "name": "LEXINGTON AV / E 23 ST - Northbound",
+    "normalizedName": "LEXINGTON AV / E 23 ST NORTHBOUND",
+    "lat": 40.739035,
+    "lon": -73.983869
+  }
+]

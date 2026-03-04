@@ -10,3 +10,9 @@ export interface BusRoute {
   direction: string
   arrivals: BusArrival[]
 }
+
+export interface StopSearchResult {
+  code: string
+  name: string
+  distanceMeters?: number
+}

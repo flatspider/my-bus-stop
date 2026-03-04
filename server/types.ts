@@ -16,6 +16,20 @@ export interface StopData {
   routes: BusRoute[]
 }
 
+export interface IndexedStop {
+  code: string
+  name: string
+  normalizedName: string
+  lat: number
+  lon: number
+}
+
+export interface StopSearchResult {
+  code: string
+  name: string
+  distanceMeters?: number
+}
+
 export interface GtfsRtArrival {
   routeId: string
   tripId: string
