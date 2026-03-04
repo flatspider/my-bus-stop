@@ -1,0 +1,1 @@
+export const SETTINGS_CLOSE_HINT_DELAY_MS = 3_000

@@ -6,7 +6,7 @@ import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, JSONL_PATH } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
-import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug } from "./server/stopsIndex.ts";
+import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,6 +97,17 @@ app.get("/api/stops/search", (req, res) => {
 
   res.setHeader("Cache-Control", "public, max-age=60");
   res.json(results);
+});
+
+app.get("/api/stops/exists", (req, res) => {
+  const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
+  if (!/^\d{6}$/.test(code)) {
+    res.status(400).json({ error: "Missing or invalid code parameter" });
+    return;
+  }
+
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.json({ exists: stopCodeExists(code) });
 });
 
 if (!isProduction) {

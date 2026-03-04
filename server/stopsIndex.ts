@@ -29,6 +29,7 @@ let cachedStopsLegacy: IndexedStop[] = []
 let cachedStopsV2: SearchIndexedStop[] = []
 let runtimeSearchIndex: RuntimeSearchIndex | null = null
 let correctionMap: Record<string, string> = {}
+let knownStopCodes = new Set<string>()
 let enrichedDirectionByCode = new Map<string, {
   directionLabel: string
   directionShort: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
@@ -413,6 +414,7 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
     if (parsed) {
       cachedStopsV2 = parsed.stops
       runtimeSearchIndex = buildRuntimeSearchIndex(cachedStopsV2)
+      rebuildKnownStopCodes()
       console.log(`[stops] Loaded ${cachedStopsV2.length} v2 indexed stops from ${DEFAULT_SEARCH_INDEX_PATH}`)
       return
     }
@@ -424,12 +426,34 @@ export async function loadStopsIndex(indexPath = DEFAULT_INDEX_PATH): Promise<vo
     const fallbackArtifact = buildSearchArtifactFromLegacyStops(cachedStopsLegacy)
     cachedStopsV2 = fallbackArtifact.stops
     runtimeSearchIndex = buildRuntimeSearchIndex(cachedStopsV2)
+    rebuildKnownStopCodes()
     console.log(`[stops] Built fallback v2 index from ${cachedStopsLegacy.length} legacy stops`)
     return
   }
 
   cachedStopsV2 = []
   runtimeSearchIndex = null
+  rebuildKnownStopCodes()
+  return
+}
+
+function rebuildKnownStopCodes(): void {
+  const next = new Set<string>()
+  for (const stop of cachedStopsLegacy) {
+    next.add(stop.code)
+  }
+  for (const stop of cachedStopsV2) {
+    next.add(stop.code)
+  }
+  for (const code of enrichedDirectionByCode.keys()) {
+    next.add(code)
+  }
+  knownStopCodes = next
+}
+
+export function stopCodeExists(stopCode: string): boolean {
+  if (!/^\d{6}$/.test(stopCode)) return false
+  return knownStopCodes.has(stopCode)
 }
 
 export function getStopsIndexCount(): number {

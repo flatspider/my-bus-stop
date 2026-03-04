@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import { stopCodeExists } from "../stopSearchApi";
 import type { Settings } from "../useSettings";
 
 const QrScanner = lazy(() => import("./QrScanner"));
@@ -54,8 +55,11 @@ export default function SettingsPanel({
   const [stopCode, setStopCode] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [isValidatingStop, setIsValidatingStop] = useState(false);
+  const [isInputShaking, setIsInputShaking] = useState(false);
   const [hasFocusedStopInput, setHasFocusedStopInput] = useState(false);
   const [canUseQrScan, setCanUseQrScan] = useState(false);
+  const shakeResetTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -84,6 +88,30 @@ export default function SettingsPanel({
     }
   }, [canUseQrScan, scannerOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (shakeResetTimerRef.current !== null) {
+        window.clearTimeout(shakeResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  function triggerInputShake() {
+    if (shakeResetTimerRef.current !== null) {
+      window.clearTimeout(shakeResetTimerRef.current);
+      shakeResetTimerRef.current = null;
+    }
+
+    setIsInputShaking(false);
+    window.requestAnimationFrame(() => {
+      setIsInputShaking(true);
+      shakeResetTimerRef.current = window.setTimeout(() => {
+        setIsInputShaking(false);
+        shakeResetTimerRef.current = null;
+      }, 420);
+    });
+  }
+
   function navigateToStop(code: string) {
     const targetPath = `/stop/${code}`;
     if (location.pathname === targetPath) {
@@ -95,11 +123,32 @@ export default function SettingsPanel({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  async function validateStopAndNavigate(code: string) {
+    setIsValidatingStop(true);
+    setScanError("");
+    try {
+      const exists = await stopCodeExists(code);
+      if (!exists) {
+        setScanError(
+          "Stop code not found. Check the 6-digit code and try again.",
+        );
+        triggerInputShake();
+        return;
+      }
+      navigateToStop(code);
+    } catch {
+      setScanError("Could not verify this stop code. Try again.");
+      triggerInputShake();
+    } finally {
+      setIsValidatingStop(false);
+    }
+  }
+
   function handleScan(code: string) {
     setScannerOpen(false);
     setScanError("");
     setStopCode(code);
-    navigateToStop(code);
+    void validateStopAndNavigate(code);
   }
 
   function handleScanError(msg: string) {
@@ -112,11 +161,13 @@ export default function SettingsPanel({
 
   function handleGo() {
     if (!canGo) return;
-    navigateToStop(normalizedStopCode);
+    void validateStopAndNavigate(normalizedStopCode);
   }
 
   return (
-    <div className={`bus-card bus-card--settings${inline ? " bus-card--settings-inline" : ""}`}>
+    <div
+      className={`bus-card bus-card--settings${inline ? " bus-card--settings-inline" : ""}`}
+    >
       <div className="bus-card__accent bus-card__accent--gray" />
       <div className="settings-panel__content">
         <button
@@ -169,16 +220,17 @@ export default function SettingsPanel({
           >
             <div className="settings-panel__input-wrap">
               <input
-                className="settings-panel__input"
+                className={`settings-panel__input${isInputShaking ? " settings-panel__input--shake" : ""}`}
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
                 placeholder="Bus stop code"
                 value={stopCode}
-                onChange={(e) =>
-                  setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-                }
+                onChange={(e) => {
+                  setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                  if (scanError) setScanError("");
+                }}
                 onFocus={() => {
                   setHasFocusedStopInput(true);
                 }}
@@ -212,9 +264,9 @@ export default function SettingsPanel({
             <button
               className="settings-panel__go"
               type="submit"
-              disabled={!canGo}
+              disabled={!canGo || isValidatingStop}
             >
-              Go
+              {isValidatingStop ? "Checking..." : "Go"}
             </button>
           </form>
           {showStopHelp && (
