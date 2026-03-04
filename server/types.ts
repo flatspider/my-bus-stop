@@ -24,10 +24,57 @@ export interface IndexedStop {
   lon: number
 }
 
+export type SearchDirection = "nb" | "sb" | "eb" | "wb" | "unknown"
+
+export interface SearchIndexedStop {
+  id: number
+  code: string
+  name: string
+  canonical: string
+  altForms: string[]
+  tokenBag: string[]
+  intersectionKey: string
+  intersectionKeySorted: string
+  direction: SearchDirection
+  streetNumber?: number
+  avenueNumber?: number
+  trigrams: string[]
+  lat: number
+  lon: number
+}
+
+export interface SearchIndexArtifactV1 {
+  version: 1
+  generatedAt: string
+  sourceFile: string
+  stopCount: number
+  stops: SearchIndexedStop[]
+}
+
 export interface StopSearchResult {
   code: string
   name: string
   distanceMeters?: number
+  directionLabel?: string
+  directionShort?: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
+  directionConfidence?: "high" | "medium" | "low"
+  directionSource?: "trip+cardinal" | "cardinal" | "trip" | "none"
+}
+
+export interface EnrichedStopDirection {
+  code: string
+  directionLabel: string
+  directionShort: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
+  directionConfidence: "high" | "medium" | "low"
+  directionSource: "trip+cardinal" | "cardinal" | "trip" | "none"
+}
+
+export interface EnrichedStopsArtifactV1 {
+  version: 1
+  generatedAt: string
+  gtfsRoot: string
+  stopCount: number
+  stops: Array<EnrichedStopDirection>
 }
 
 export interface GtfsRtArrival {

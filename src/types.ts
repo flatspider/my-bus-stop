@@ -15,4 +15,8 @@ export interface StopSearchResult {
   code: string
   name: string
   distanceMeters?: number
+  directionLabel?: string
+  directionShort?: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
+  directionConfidence?: "high" | "medium" | "low"
+  directionSource?: "trip+cardinal" | "cardinal" | "trip" | "none"
 }

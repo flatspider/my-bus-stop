@@ -43,6 +43,10 @@ async function fetchResults(url: string, signal?: AbortSignal): Promise<StopSear
       code: item.code,
       name: item.name,
       ...(typeof item.distanceMeters === 'number' ? { distanceMeters: item.distanceMeters } : {}),
+      ...(typeof item.directionLabel === 'string' ? { directionLabel: item.directionLabel } : {}),
+      ...(typeof item.directionShort === 'string' ? { directionShort: item.directionShort } : {}),
+      ...(typeof item.directionConfidence === 'string' ? { directionConfidence: item.directionConfidence } : {}),
+      ...(typeof item.directionSource === 'string' ? { directionSource: item.directionSource } : {}),
     }))
 }
 

@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "start": "node --experimental-strip-types server.ts",
     "dev:server": "node --experimental-strip-types --env-file=.env.local server.ts",
+    "data:merge-gtfs-stops": "bun scripts/merge-gtfs-stops.ts",
+    "data:build-enriched-stops": "bun scripts/build-enriched-stops.ts",
     "data:build-stop-index": "bun scripts/build-stop-index.ts",
+    "data:build-stop-search-index": "bun scripts/build-stop-search-index.ts",
     "analyze": "bun scripts/analyze-ghosts.ts",
     "analyze:disagreements": "bun scripts/analyze-disagreements.ts",
     "analyze:lifecycles": "bun scripts/analyze-trip-lifecycles.ts"

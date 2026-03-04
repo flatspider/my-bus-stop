@@ -13,6 +13,9 @@ export function deriveArrivalCards(routes: BusRoute[], maxPerRoute = 2): Arrival
 
   for (const routeEntry of routes) {
     routeEntry.arrivals.forEach((arrival, arrivalIndex) => {
+      const hasKnownMinutes = Number.isFinite(arrival.minutesNum) && arrival.minutesNum >= 0
+      if (!hasKnownMinutes || /^unknown$/i.test(arrival.minutes.trim())) return
+
       const hasVehicleId = arrival.vehicleId.trim().length > 0
       const stableId = hasVehicleId
         ? `${routeEntry.route}|${arrival.vehicleId}`
