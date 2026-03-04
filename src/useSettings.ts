@@ -13,7 +13,7 @@ const STORAGE_KEY = 'buswatch-settings'
 const DEFAULTS: Settings = {
   showMinSuffix: true,
   showRouteName: true,
-  showStopsAway: false,
+  showStopsAway: true,
   showStopTitle: true,
   darkMode: false,
 }

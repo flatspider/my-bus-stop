@@ -122,7 +122,7 @@ export default function BusCard({
         {showStopsAway && arrival.stopsAway && (
           <span className="bus-card__stops-away">{arrival.stopsAway}</span>
         )}
-        {!hideVehicleStatusDot && (
+        {!hideVehicleStatusDot && !showStopsAway && (
           <span
             className={vehicleDotClassName}
             aria-label={vehicleDotLabel}
