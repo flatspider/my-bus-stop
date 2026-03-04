@@ -136,14 +136,18 @@ function computeMinutes(expectedArrival: string | undefined): { minutes: string;
 
 function parseStopsAway(visit: MonitoredStopVisit): string {
   const call = visit.MonitoredVehicleJourney.MonitoredCall
+  const rawStops = call.Extensions?.Distances?.StopsFromCall
+  if (rawStops !== undefined && rawStops !== null) {
+    const stops =
+      typeof rawStops === "number" ? rawStops : Number.parseInt(String(rawStops), 10)
+    if (!Number.isNaN(stops)) {
+      if (stops <= 0) return "at stop"
+      return `${stops} stop${stops === 1 ? "" : "s"} away`
+    }
+  }
+
   const presentable = call.Extensions?.Distances?.PresentableDistance
   if (presentable) return presentable
-
-  const stops = call.Extensions?.Distances?.StopsFromCall
-  if (stops !== undefined) {
-    if (stops === 0) return "at stop"
-    return `${stops} stop${stops === 1 ? "" : "s"} away`
-  }
 
   return ""
 }
