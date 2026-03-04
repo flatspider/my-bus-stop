@@ -6,7 +6,7 @@ import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, JSONL_PATH } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
-import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops } from "./server/stopsIndex.ts";
+import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug } from "./server/stopsIndex.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -78,7 +78,22 @@ app.get("/api/stops/search", (req, res) => {
   const lat = parseNumberParam(req.query.lat) ?? undefined;
   const lon = parseNumberParam(req.query.lon) ?? undefined;
   const limit = parseLimit(req.query.limit);
-  const results = searchStops(q, { lat, lon, limit });
+  const recentCodes = typeof req.query.recents === "string"
+    ? req.query.recents
+      .split(",")
+      .map((code) => code.trim())
+      .filter((code) => /^\d{6}$/.test(code))
+    : undefined;
+  const debug = !isProduction && (req.query.debug === "1" || req.query.debug === "true");
+
+  if (debug) {
+    const payload = searchStopsWithDebug(q, { lat, lon, limit, recentCodes });
+    res.setHeader("Cache-Control", "no-store");
+    res.json(payload);
+    return;
+  }
+
+  const results = searchStops(q, { lat, lon, limit, recentCodes });
 
   res.setHeader("Cache-Control", "public, max-age=60");
   res.json(results);

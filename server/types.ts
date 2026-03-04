@@ -24,6 +24,33 @@ export interface IndexedStop {
   lon: number
 }
 
+export type SearchDirection = "nb" | "sb" | "eb" | "wb" | "unknown"
+
+export interface SearchIndexedStop {
+  id: number
+  code: string
+  name: string
+  canonical: string
+  altForms: string[]
+  tokenBag: string[]
+  intersectionKey: string
+  intersectionKeySorted: string
+  direction: SearchDirection
+  streetNumber?: number
+  avenueNumber?: number
+  trigrams: string[]
+  lat: number
+  lon: number
+}
+
+export interface SearchIndexArtifactV1 {
+  version: 1
+  generatedAt: string
+  sourceFile: string
+  stopCount: number
+  stops: SearchIndexedStop[]
+}
+
 export interface StopSearchResult {
   code: string
   name: string
