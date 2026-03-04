@@ -78,3 +78,15 @@ export async function searchStops(
 
   return fetchResults(`/api/stops/search?${query}`, options.signal)
 }
+
+export async function stopCodeExists(code: string, signal?: AbortSignal): Promise<boolean> {
+  const query = buildQuery({ code })
+  const res = await fetch(`/api/stops/exists?${query}`, { signal })
+  if (!res.ok) {
+    throw new Error(`Stop existence request failed: ${res.status}`)
+  }
+  const data = await res.json() as unknown
+  if (!data || typeof data !== "object") return false
+  const maybe = data as { exists?: unknown }
+  return maybe.exists === true
+}

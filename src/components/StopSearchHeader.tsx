@@ -283,12 +283,20 @@ export default function StopSearchHeader({
         >
           {statusNode}
           {showStopTitle && stopName && (
-            <span className="stop-search__title-wrap">
+            <span className="stop-search__title-wrap" data-tutorial="default-stop">
               <span className="stop-name">{stopName}</span>
             </span>
           )}
-          {showStopTitle && !stopName && <span className="stop-search__fallback">Search stop</span>}
-          {!showStopTitle && <span className="stop-search__fallback">Search stop</span>}
+          {showStopTitle && !stopName && (
+            <span className="stop-search__fallback" data-tutorial="default-stop">
+              Search stop
+            </span>
+          )}
+          {!showStopTitle && (
+            <span className="stop-search__fallback" data-tutorial="default-stop">
+              Search stop
+            </span>
+          )}
         </button>
       ) : (
         <div className="stop-search__input-shell">

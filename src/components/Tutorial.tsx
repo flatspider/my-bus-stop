@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 
 const MOBILE_BREAKPOINT_PX = 600;
 const VIEWPORT_GUTTER_PX = 12;
@@ -6,6 +6,7 @@ const REGULAR_STEP_REVEAL_DELAY_MS = 220;
 const SETTINGS_STEP_MAX_WAIT_MS = 900;
 const SETTINGS_STEP_STABLE_FRAMES = 3;
 const RECT_STABLE_DELTA_PX = 0.75;
+const SECONDARY_SPOT_INSET_PX = 6;
 const DEFAULT_SPOT_INSETS = { top: 8, right: 8, bottom: 8, left: 8 };
 const STOP_INPUT_SPOT_INSETS_DESKTOP = {
   top: 14,
@@ -23,25 +24,27 @@ const STOP_INPUT_SPOT_INSETS_MOBILE = {
 const STEPS = [
   {
     target: '[data-tutorial="default-stop"]',
-    text: "This is your bus stop. Update your stop in Settings.",
+    text: "Tap to search for your bus stop.",
     borderRadius: 16,
   },
   {
     target: '[data-tutorial="card"]',
-    text: "Each card is one arriving bus. Tap for route details on MTA BusTime.",
+    text: "Each card is one arriving bus. Click for route details on MTA BusTime.",
     borderRadius: 16,
   },
   {
     target: '[data-tutorial="stop-input"]',
-    text: "Scan or enter your 6-digit stop code to track your stop.",
+    text: "In settings, scan or enter your 6-digit stop code to track your stop.",
     borderRadius: 16,
     openSettings: true,
+    secondaryTarget: '[data-tutorial="settings-gear"]',
   },
 ];
 
 interface Props {
   onClose: () => void;
   onOpenSettings: () => void;
+  onStepChange?: (step: number) => void;
 }
 
 interface SpotInsets {
@@ -65,9 +68,18 @@ function rectsAreClose(a: DOMRect, b: DOMRect, delta: number): boolean {
   );
 }
 
-function measureTarget(stepIndex: number): DOMRect | null {
-  const el = document.querySelector(STEPS[stepIndex].target);
+function measureElement(selector: string): DOMRect | null {
+  const el = document.querySelector(selector);
   return el ? el.getBoundingClientRect() : null;
+}
+
+function measureTarget(stepIndex: number): DOMRect | null {
+  return measureElement(STEPS[stepIndex].target);
+}
+
+function measureSecondaryTarget(stepIndex: number): DOMRect | null {
+  const secondaryTarget = STEPS[stepIndex].secondaryTarget;
+  return secondaryTarget ? measureElement(secondaryTarget) : null;
 }
 
 function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
@@ -79,9 +91,14 @@ function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
   return DEFAULT_SPOT_INSETS;
 }
 
-export default function Tutorial({ onClose, onOpenSettings }: Props) {
+export default function Tutorial({
+  onClose,
+  onOpenSettings,
+  onStepChange,
+}: Props) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [secondaryRect, setSecondaryRect] = useState<DOMRect | null>(null);
   const [visible, setVisible] = useState(true);
   const [instantHide, setInstantHide] = useState(false);
 
@@ -92,10 +109,16 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   // Measure on mount
   useEffect(() => {
     setRect(measureTarget(0));
+    setSecondaryRect(measureSecondaryTarget(0));
   }, []);
 
   // Handle step transitions — only depends on `step`
   useEffect(() => {
+    onStepChange?.(step);
+  }, [onStepChange, step]);
+
+  // Handle step transitions — only depends on `step`
+  useLayoutEffect(() => {
     if (step === 0) return;
 
     const shouldOpenSettings = Boolean(STEPS[step].openSettings);
@@ -122,6 +145,8 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
         if (cancelled) return;
 
         const nextRect = measureTarget(step);
+        const nextSecondaryRect = measureSecondaryTarget(step);
+        setSecondaryRect(nextSecondaryRect);
         const hasTimedOut =
           performance.now() - startedAt >= SETTINGS_STEP_MAX_WAIT_MS;
 
@@ -155,6 +180,7 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
     } else {
       revealTimer = setTimeout(() => {
         setRect(measureTarget(step));
+        setSecondaryRect(measureSecondaryTarget(step));
         setVisible(true);
         setInstantHide(false);
       }, REGULAR_STEP_REVEAL_DELAY_MS);
@@ -172,6 +198,7 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   useEffect(() => {
     function handleResize() {
       setRect(measureTarget(step));
+      setSecondaryRect(measureSecondaryTarget(step));
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -191,6 +218,7 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   const viewportHeight = window.innerHeight;
   const isMobile = viewportWidth <= MOBILE_BREAKPOINT_PX;
   const isFirstStep = step === 0;
+  const hasSecondaryTarget = Boolean(STEPS[step].secondaryTarget);
   const insets = getSpotInsets(step, isMobile);
 
   const spotWidth = Math.min(
@@ -220,6 +248,40 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
     height: spotHeight,
     borderRadius: STEPS[step].borderRadius,
   };
+
+  const secondarySpot = secondaryRect
+    ? {
+        top: clamp(
+          secondaryRect.top - SECONDARY_SPOT_INSET_PX,
+          VIEWPORT_GUTTER_PX,
+          viewportHeight -
+            VIEWPORT_GUTTER_PX -
+            (secondaryRect.height + SECONDARY_SPOT_INSET_PX * 2),
+        ),
+        left: clamp(
+          secondaryRect.left - SECONDARY_SPOT_INSET_PX,
+          VIEWPORT_GUTTER_PX,
+          viewportWidth -
+            VIEWPORT_GUTTER_PX -
+            (secondaryRect.width + SECONDARY_SPOT_INSET_PX * 2),
+        ),
+        width: Math.min(
+          secondaryRect.width + SECONDARY_SPOT_INSET_PX * 2,
+          viewportWidth - VIEWPORT_GUTTER_PX * 2,
+        ),
+        height: Math.min(
+          secondaryRect.height + SECONDARY_SPOT_INSET_PX * 2,
+          viewportHeight - VIEWPORT_GUTTER_PX * 2,
+        ),
+        borderRadius: 999,
+      }
+    : null;
+  const secondarySpotStyle: React.CSSProperties | null = secondarySpot
+    ? {
+        position: "fixed",
+        ...secondarySpot,
+      }
+    : null;
 
   const maxTooltipWidth = viewportWidth - VIEWPORT_GUTTER_PX * 2;
   const mobileTooltipWidth = isFirstStep
@@ -256,10 +318,65 @@ export default function Tutorial({ onClose, onOpenSettings }: Props) {
   ]
     .filter(Boolean)
     .join(" ");
+  const maskId = `tutorial-cutout-mask-${step}`;
 
   return (
     <div className={overlayClasses}>
-      <div className="tutorial-spotlight" style={spotStyle} />
+      {hasSecondaryTarget && secondarySpot ? (
+        <>
+          <svg
+            className="tutorial-cutout-overlay"
+            width={viewportWidth}
+            height={viewportHeight}
+            viewBox={`0 0 ${viewportWidth} ${viewportHeight}`}
+            aria-hidden="true"
+          >
+            <defs>
+              <mask id={maskId} maskUnits="userSpaceOnUse">
+                <rect
+                  x="0"
+                  y="0"
+                  width={viewportWidth}
+                  height={viewportHeight}
+                  fill="white"
+                />
+                <rect
+                  x={spotLeft}
+                  y={spotTop}
+                  width={spotWidth}
+                  height={spotHeight}
+                  rx={STEPS[step].borderRadius}
+                  fill="black"
+                />
+                <rect
+                  x={secondarySpot.left}
+                  y={secondarySpot.top}
+                  width={secondarySpot.width}
+                  height={secondarySpot.height}
+                  rx={secondarySpot.borderRadius}
+                  fill="black"
+                />
+              </mask>
+            </defs>
+            <rect
+              x="0"
+              y="0"
+              width={viewportWidth}
+              height={viewportHeight}
+              fill="var(--tutorial-dim)"
+              mask={`url(#${maskId})`}
+            />
+          </svg>
+          {secondarySpotStyle && (
+            <div
+              className="tutorial-spotlight--secondary"
+              style={secondarySpotStyle}
+            />
+          )}
+        </>
+      ) : (
+        <div className="tutorial-spotlight" style={spotStyle} />
+      )}
 
       <div className="tutorial-tooltip" style={tooltipStyle}>
         <p className="tutorial-tooltip__text">{STEPS[step].text}</p>
