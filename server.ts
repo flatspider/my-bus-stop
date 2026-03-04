@@ -6,13 +6,28 @@ import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, JSONL_PATH } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
+import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops } from "./server/stopsIndex.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isProduction = process.env.NODE_ENV === "production";
 
 console.log(`BusWatch mode: ${config.mode}`);
+
+function parseNumberParam(raw: unknown): number | null {
+  if (typeof raw !== "string") return null;
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function parseLimit(raw: unknown): number | undefined {
+  if (typeof raw !== "string") return undefined;
+  const limit = Number.parseInt(raw, 10);
+  if (Number.isNaN(limit)) return undefined;
+  return limit;
+}
 
 app.get("/api/bustime", async (req, res) => {
   if (!config.apiKey) {
@@ -36,6 +51,45 @@ app.get("/api/bustime", async (req, res) => {
     res.status(502).send("Failed to fetch bus data");
   }
 });
+
+app.get("/api/stops/nearby", (req, res) => {
+  const lat = parseNumberParam(req.query.lat);
+  const lon = parseNumberParam(req.query.lon);
+  if (lat === null || lon === null) {
+    res.status(400).json({ error: "Missing or invalid lat/lon parameters" });
+    return;
+  }
+
+  const radius = parseNumberParam(req.query.radius) ?? undefined;
+  const limit = parseLimit(req.query.limit);
+  const results = nearbyStops(lat, lon, { radius, limit });
+
+  res.setHeader("Cache-Control", "public, max-age=30");
+  res.json(results);
+});
+
+app.get("/api/stops/search", (req, res) => {
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (!q) {
+    res.status(400).json({ error: "Missing q parameter" });
+    return;
+  }
+
+  const lat = parseNumberParam(req.query.lat) ?? undefined;
+  const lon = parseNumberParam(req.query.lon) ?? undefined;
+  const limit = parseLimit(req.query.limit);
+  const results = searchStops(q, { lat, lon, limit });
+
+  res.setHeader("Cache-Control", "public, max-age=60");
+  res.json(results);
+});
+
+if (!isProduction) {
+  app.post("/api/stops/reload", async (_req, res) => {
+    await loadStopsIndex();
+    res.json({ ok: true, count: getStopsIndexCount() });
+  });
+}
 
 // --- Snapshots API ---
 app.get("/api/snapshots", async (_req, res) => {
@@ -86,6 +140,9 @@ async function pollOnce() {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  loadStopsIndex().catch((err) => {
+    console.error("[stops] Startup load failed:", err);
+  });
 
   if (config.mode === "compare") {
     console.log(`[poll] Starting background polling every ${POLL_INTERVAL_MS / 1000}s for stop ${POLL_STOP}`);

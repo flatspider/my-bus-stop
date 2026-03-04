@@ -6,6 +6,12 @@ const ROUTE_COLORS: Record<string, string> = {
   M103: "#B933AD",
 };
 
+const ROUTE_COLORS_DARK: Record<string, string> = {
+  M101: "#5EA2FF",
+  M102: "#4AD97F",
+  M103: "#E36BDA",
+};
+
 function hexToRgb(hex: string): [number, number, number] | null {
   const normalized = hex.trim();
   const match = normalized.match(/^#([0-9a-f]{6})$/i);
@@ -46,9 +52,11 @@ function contrastRatio(foregroundHex: string, backgroundHex: string): number {
 
 function getRouteColor(route: string, darkMode: boolean): string {
   const fallback = darkMode ? "#e5e5e5" : "#1a1a1a";
-  const routeColor = ROUTE_COLORS[route] ?? fallback;
+  const routePalette = darkMode ? ROUTE_COLORS_DARK : ROUTE_COLORS;
+  const routeColor = routePalette[route] ?? fallback;
   const background = darkMode ? "#1e1e1e" : "#ffffff";
-  return contrastRatio(routeColor, background) >= 3
+  const minContrast = darkMode ? 4.5 : 3;
+  return contrastRatio(routeColor, background) >= minContrast
     ? routeColor
     : fallback;
 }

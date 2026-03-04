@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { AUTO_REFRESH_INTERVAL_MS, MIN_REQUEST_GAP_MS, STALE_DATA_THRESHOLD_MS } from './refreshPolicy'
 import type { BusRoute } from './types'
 import { deriveArrivalCards } from './arrivalCards'
@@ -8,6 +8,7 @@ import BusCard from './components/BusCard'
 import StatusDot from './components/StaleDataBanner'
 import SettingsPanel from './components/SettingsPanel'
 import Tutorial from './components/Tutorial'
+import StopSearchHeader from './components/StopSearchHeader'
 import { useSettings } from './useSettings'
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from './stopConfig'
 
@@ -15,6 +16,7 @@ type LayoutMode = 'singleHero' | 'topStack' | 'dense'
 
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>()
+  const navigate = useNavigate()
   const normalizedStopCode = stopCode?.trim() ?? ''
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode)
   const [stopName, setStopName] = useState('')
@@ -138,12 +140,27 @@ export default function StopPage() {
     return <Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />
   }
 
+  function handleStopSelect(nextStopCode: string) {
+    const targetPath = `/stop/${nextStopCode}`
+    if (normalizedStopCode === nextStopCode) {
+      void fetchBusData()
+    } else {
+      navigate(targetPath)
+    }
+    setSettingsOpen(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <div className="app-header__left" data-tutorial="default-stop">
-          <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
-          {settings.showStopTitle && stopName && <span className="stop-name">{stopName}</span>}
+          <StopSearchHeader
+            statusNode={<StatusDot isStale={isStale} staleSeconds={staleSeconds} />}
+            stopName={stopName}
+            showStopTitle={settings.showStopTitle}
+            onSelectStop={handleStopSelect}
+          />
         </div>
         <button className={`gear-btn${settingsOpen ? ' gear-btn--active' : ''}`} onClick={() => setSettingsOpen((prev) => !prev)} aria-label="Settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
