@@ -119,8 +119,12 @@ export default function Home() {
     lastFetchAtMs > 0 ? Math.floor((nowMs - lastFetchAtMs) / 1000) : 0;
 
   const noData = !loading && arrivalCards.length === 0;
+  const isErrorEmptyState = noData && Boolean(error);
   const topCard = displayCards[0];
   const lowerCards = displayCards.slice(1);
+  const noDataMessage = error
+    ? "Unable to fetch arrivals right now."
+    : "No buses currently en route";
 
   const cardsClassName = ["cards", isSlidePhase ? "cards--slide-phase" : ""]
     .filter(Boolean)
@@ -138,7 +142,10 @@ export default function Home() {
     <div className="app">
       <header className="app-header">
         <div className="app-header__left" data-tutorial="default-stop">
-          <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
+          <StatusDot
+            isStale={isStale && !isErrorEmptyState}
+            staleSeconds={staleSeconds}
+          />
           {settings.showStopTitle && (
             <span className="stop-name">3 AV / E 23 ST — Southbound</span>
           )}
@@ -175,14 +182,14 @@ export default function Home() {
         </div>
       </header>
 
-      {error && <div className="error">{error}</div>}
+      {error && !noData && <div className="error">{error}</div>}
 
       <div className={cardsClassName}>
         {loading ? (
           <div className="loading">Loading...</div>
         ) : noData ? (
           <>
-            <div className="loading">No buses currently en route</div>
+            <div className="loading">{noDataMessage}</div>
             {settingsOpen && (
               <SettingsPanel
                 onRefresh={() => void fetchBusData()}

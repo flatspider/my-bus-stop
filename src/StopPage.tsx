@@ -158,6 +158,7 @@ export default function StopPage() {
   const layoutMode: LayoutMode =
     busCount === 1 ? "singleHero" : busCount >= 4 ? "dense" : "topStack";
   const noData = !loading && busCount === 0;
+  const isErrorEmptyState = noData && Boolean(error);
   const showSettingsPanel = settingsOpen;
   const topCard = displayCards[0];
   const lowerCards = displayCards.slice(1);
@@ -205,7 +206,10 @@ export default function StopPage() {
         <div className="app-header__left" data-tutorial="default-stop">
           <StopSearchHeader
             statusNode={
-              <StatusDot isStale={isStale} staleSeconds={staleSeconds} />
+              <StatusDot
+                isStale={isStale && !isErrorEmptyState}
+                staleSeconds={staleSeconds}
+              />
             }
             stopName={stopName}
             showStopTitle={settings.showStopTitle}
@@ -247,7 +251,7 @@ export default function StopPage() {
         )}
       </header>
 
-      {error && <div className="error">{error}</div>}
+      {error && !noData && <div className="error">{error}</div>}
 
       <div className={cardsClassName}>
         {loading ? (
