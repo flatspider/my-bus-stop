@@ -304,11 +304,14 @@ export default function StopSearchHeader({
   }
 
   return (
-    <div className="stop-search" ref={wrapperRef}>
+    <div
+      className={`stop-search${!showMiniMap && !showStopTitle ? " stop-search--icon-only" : ""}`}
+      ref={wrapperRef}
+    >
       {!isExpanded ? (
         <button
           type="button"
-          className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}`}
+          className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}${!showMiniMap && !showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
         >
@@ -362,7 +365,7 @@ export default function StopSearchHeader({
             </span>
           ) : (
             <>
-              {statusNode}
+              {showStopTitle && statusNode}
               {showStopTitle && stopName && (
                 <span
                   className="stop-search__title-wrap"
@@ -386,32 +389,43 @@ export default function StopSearchHeader({
                 </span>
               )}
               {!showStopTitle && (
-                <span
-                  className="stop-search__fallback"
-                  data-tutorial="default-stop"
-                >
-                  <span className="stop-search__title-block">
-                    <span className="stop-search__title-accent" aria-hidden="true" />
-                    Search stop
-                  </span>
+                <span className="stop-search__icon-only" data-tutorial="default-stop">
+                  {statusNode}
+                  <svg
+                    className="stop-search__icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
                 </span>
               )}
             </>
           )}
-          <svg
-            className="stop-search__chevron"
-            width="8"
-            height="16"
-            viewBox="0 0 8 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M1.5 1.5l5 6.5-5 6.5" />
-          </svg>
+          {showStopTitle && !showMiniMap && (
+            <svg
+              className="stop-search__chevron"
+              width="8"
+              height="16"
+              viewBox="0 0 8 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M1.5 1.5l5 6.5-5 6.5" />
+            </svg>
+          )}
         </button>
       ) : (
         <div className="stop-search__input-shell">
