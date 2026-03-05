@@ -6,6 +6,12 @@ import { getStopMiniMapMeta } from "./stopsIndex.ts"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CACHE_DIR = path.join(__dirname, "..", "data", "minimaps")
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const CACHE_TTL_BY_REASON_MS: Record<MiniMapUnavailableReason, number> = {
+  timeout: 5 * 60 * 1000,
+  no_roads: CACHE_TTL_MS,
+  low_quality: CACHE_TTL_MS,
+  error: 0,
+}
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 const OVERPASS_RADIUS_METERS = 170
 const FETCH_TIMEOUT_MS = 3000
@@ -224,8 +230,7 @@ function pickRoadPair(candidates: CandidateRoad[]): SelectedRoadPair | null {
       const b = candidates[j]
       if (a.name === b.name) continue
 
-      const angleDiff = normalizeAngleDiff(a.bearing, b.bearing)
-      const crossingAngle = angleDiff * 2
+      const crossingAngle = normalizeAngleDiff(a.bearing, b.bearing)
       if (crossingAngle < 55 || crossingAngle > 125) continue
 
       const distancePenalty = (a.distanceToStop + b.distanceToStop) / 80
@@ -332,7 +337,9 @@ async function readCache(stopCode: string): Promise<MiniMapResponse | null> {
 
     if (meta.status === "unavailable" && meta.reason) {
       const generatedAtMs = new Date(meta.generatedAt).getTime()
-      if (Number.isFinite(generatedAtMs) && Date.now() - generatedAtMs < CACHE_TTL_MS) {
+      const ttl = CACHE_TTL_BY_REASON_MS[meta.reason] ?? 0
+      if (ttl <= 0) return null
+      if (Number.isFinite(generatedAtMs) && Date.now() - generatedAtMs < ttl) {
         return {
           status: "unavailable",
           code: stopCode,
