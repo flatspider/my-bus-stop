@@ -1678,7 +1678,7 @@ html.dark .bus-card__vehicle-dot--fallback {
   }
 
   .bus-card__minutes-value {
-    font-size: 92px;
+    font-size: 82px;
     line-height: 0.88;
   }
 
@@ -1688,6 +1688,7 @@ html.dark .bus-card__vehicle-dot--fallback {
 
   .bus-card__stops-away {
     font-size: 14px;
+    flex-shrink: 0;
   }
 
   .bus-card__vehicle-dot {
