@@ -20,6 +20,11 @@ import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import type { StopMiniMapResponse } from "./types";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
+type ReadyMiniMap = Extract<StopMiniMapResponse, { status: "ready" }>;
+
+function isSupportedMiniMapLayout(layoutVersion: string): layoutVersion is "v2" | "v3" {
+  return layoutVersion === "v2" || layoutVersion === "v3";
+}
 
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>();
@@ -45,6 +50,7 @@ export default function StopPage() {
   const [tutorialStep, setTutorialStep] = useState(0);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
+  const readyMiniMapByStopRef = useRef<Record<string, ReadyMiniMap>>({});
   const inFlightRequestRef = useRef<{
     stopCode: string;
     promise: Promise<void>;
@@ -130,6 +136,12 @@ export default function StopPage() {
   }, [fetchBusData]);
 
   useEffect(() => {
+    if (miniMap?.status === "ready") {
+      readyMiniMapByStopRef.current[miniMap.code] = miniMap;
+    }
+  }, [miniMap]);
+
+  useEffect(() => {
     if (!settings.miniMapBeta || !isValidStopCode) {
       setMiniMapLoading(false);
       setMiniMap(null);
@@ -142,7 +154,7 @@ export default function StopPage() {
       if (
         prev?.status === "ready" &&
         prev.code === normalizedStopCode &&
-        prev.layoutVersion === "v2"
+        isSupportedMiniMapLayout(prev.layoutVersion)
       ) {
         return prev;
       }
@@ -161,7 +173,7 @@ export default function StopPage() {
             if (
               prev?.status === "ready" &&
               prev.code === normalizedStopCode &&
-              prev.layoutVersion === "v2"
+              isSupportedMiniMapLayout(prev.layoutVersion)
             ) {
               return prev;
             }
@@ -175,7 +187,7 @@ export default function StopPage() {
             if (
               prev?.status === "ready" &&
               prev.code === normalizedStopCode &&
-              prev.layoutVersion === "v2"
+              isSupportedMiniMapLayout(prev.layoutVersion)
             ) {
               return prev;
             }
@@ -234,6 +246,10 @@ export default function StopPage() {
   const showSettingsPanel = settingsOpen;
   const topCard = displayCards[0];
   const lowerCards = displayCards.slice(1);
+  const resolvedMiniMap =
+    miniMap?.status === "ready"
+      ? miniMap
+      : readyMiniMapByStopRef.current[normalizedStopCode] ?? miniMap;
 
   const cardsClassName = [
     "cards",
@@ -272,7 +288,7 @@ export default function StopPage() {
   const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
   const shouldShowMiniMap =
     settings.miniMapBeta &&
-    (miniMapLoading || miniMap?.status === "ready");
+    (miniMapLoading || resolvedMiniMap?.status === "ready");
 
   return (
     <div className="app">
@@ -291,7 +307,7 @@ export default function StopPage() {
             showStopTitle={settings.showStopTitle}
             showMiniMap={shouldShowMiniMap}
             miniMapLoading={miniMapLoading}
-            miniMap={miniMap}
+            miniMap={resolvedMiniMap}
             onSelectStop={handleStopSelect}
             onExpandedChange={setSearchExpanded}
           />

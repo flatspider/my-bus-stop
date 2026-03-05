@@ -108,13 +108,17 @@ export async function fetchStopMiniMap(
 
   const maybe = data as Partial<StopMiniMapResponse>
   if (maybe.status === "ready" && typeof maybe.svg === "string" && typeof maybe.generatedAt === "string") {
+    const layoutVersion = maybe.layoutVersion === "v2" || maybe.layoutVersion === "v3"
+      ? maybe.layoutVersion
+      : "v3"
+
     return {
       status: "ready",
       code: typeof maybe.code === "string" ? maybe.code : code,
       svg: maybe.svg,
       generatedAt: maybe.generatedAt,
       source: maybe.source === "cache" ? "cache" : "generated",
-      layoutVersion: "v2",
+      layoutVersion,
     }
   }
 

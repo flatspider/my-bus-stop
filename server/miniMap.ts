@@ -15,8 +15,15 @@ const CACHE_TTL_BY_REASON_MS: Record<MiniMapUnavailableReason, number> = {
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 const OVERPASS_RADIUS_METERS = 170
 const FETCH_TIMEOUT_MS = 6500
-const LAYOUT_VERSION = "v2"
+const LAYOUT_VERSION = "v3"
 const CACHE_RENDER_REVISION = 2
+const LEGACY_READY_CACHE_CANDIDATES = [
+  { layoutVersion: "v2", renderRevision: 2 },
+] as const
+const MARKER_AXIS_DEADZONE_METERS = 1.2
+const MARKER_QUADRANT_OVERRIDES: Partial<Record<string, MarkerQuadrant>> = {
+  "402854": "nw",
+}
 
 type MiniMapUnavailableReason = "timeout" | "no_roads" | "low_quality" | "error"
 type MarkerQuadrant = "nw" | "ne" | "sw" | "se"
@@ -28,7 +35,7 @@ type MiniMapResponse =
     svg: string
     generatedAt: string
     source: "cache" | "generated"
-    layoutVersion: "v2"
+    layoutVersion: "v3"
   }
   | {
     status: "unavailable"
@@ -39,12 +46,21 @@ type MiniMapResponse =
 interface CacheMeta {
   status: "ready" | "unavailable"
   generatedAt: string
-  layoutVersion: "v2"
+  layoutVersion: "v3"
   renderRevision: number
   reason?: MiniMapUnavailableReason
   pairRoadNames?: [string, string]
   markerQuadrant?: MarkerQuadrant
   rejectionReasonDetail?: string
+}
+
+interface LegacyReadyCacheMeta {
+  status: "ready"
+  generatedAt: string
+  layoutVersion: "v2"
+  renderRevision: number
+  pairRoadNames?: [string, string]
+  markerQuadrant?: MarkerQuadrant
 }
 
 interface OverpassNode {
@@ -95,33 +111,26 @@ interface SelectedRoadPair {
   vertical: CandidateRoad
   intersection: Point
   stopOffset: Point
-  markerQuadrant: MarkerQuadrant
   pairRoadNames: [string, string]
-}
-
-interface LabelPlacement {
-  directionX: number
-  directionY: number
-  directionAnchor: "start" | "end"
 }
 
 const inflight = new Map<string, Promise<MiniMapResponse>>()
 
 const LEGIBILITY = {
   light: {
-    bg: "#fafafa",
-    primary: "#3a3a3a",
-    secondary: "#8a8a8a",
-    label: "#5c5c5c",
-    marker: "#1f1f1f",
+    bg: "#ececec",
+    primary: "#ffffff",
+    secondary: "#f5f5f5",
+    label: "#999999",
+    marker: "#555555",
   },
   dark: {
-    bg: "#111111",
-    primary: "#e6e6e6",
-    secondary: "#b5b5b5",
-    label: "#f2f2f2",
+    bg: "#222222",
+    primary: "#3a3a3a",
+    secondary: "#2a2a2a",
+    label: "#888888",
     marker: "#ffffff",
-    context: "#646464",
+    context: "#636363",
   },
 }
 
@@ -337,12 +346,56 @@ function intersectionOfLines(aPoint: Point, aDir: Point, bPoint: Point, bDir: Po
   }
 }
 
-function markerQuadrantFromOffset(offset: Point): MarkerQuadrant | null {
-  if (Math.abs(offset.x) < 1.2 || Math.abs(offset.y) < 1.2) return null
+function markerQuadrantFromOffset(offset: Point, deadzone = MARKER_AXIS_DEADZONE_METERS): MarkerQuadrant | null {
+  if (Math.abs(offset.x) < deadzone || Math.abs(offset.y) < deadzone) return null
   if (offset.x < 0 && offset.y < 0) return "nw"
   if (offset.x >= 0 && offset.y < 0) return "ne"
   if (offset.x < 0 && offset.y >= 0) return "sw"
   return "se"
+}
+
+function resolveAxisDirection<TNegative extends string, TPositive extends string>(
+  offset: number,
+  deadzone: number,
+  fallbackRoadCoordinate: number,
+  negativeDirection: TNegative,
+  positiveDirection: TPositive,
+): TNegative | TPositive {
+  if (Math.abs(offset) >= deadzone) {
+    return offset < 0 ? negativeDirection : positiveDirection
+  }
+
+  if (Math.abs(fallbackRoadCoordinate) >= 0.35) {
+    // If road centerline is east/south of stop (+), stop is on opposite side.
+    return fallbackRoadCoordinate > 0 ? negativeDirection : positiveDirection
+  }
+
+  return positiveDirection
+}
+
+function resolveMarkerQuadrant(stopCode: string, pair: SelectedRoadPair): MarkerQuadrant {
+  const override = MARKER_QUADRANT_OVERRIDES[stopCode]
+  if (override) return override
+
+  const geometry = markerQuadrantFromOffset(pair.stopOffset)
+  if (geometry) return geometry
+
+  const horizontalSide = resolveAxisDirection(
+    pair.stopOffset.x,
+    MARKER_AXIS_DEADZONE_METERS,
+    pair.vertical.linePoint.x,
+    "w",
+    "e",
+  )
+  const verticalSide = resolveAxisDirection(
+    pair.stopOffset.y,
+    MARKER_AXIS_DEADZONE_METERS,
+    pair.horizontal.linePoint.y,
+    "n",
+    "s",
+  )
+
+  return `${verticalSide}${horizontalSide}` as MarkerQuadrant
 }
 
 function pickRoadPair(candidates: CandidateRoad[]): SelectedRoadPair | null {
@@ -362,9 +415,6 @@ function pickRoadPair(candidates: CandidateRoad[]): SelectedRoadPair | null {
       if (!intersection) continue
 
       const stopOffset = { x: -intersection.x, y: -intersection.y }
-      const quadrant = markerQuadrantFromOffset(stopOffset)
-      if (!quadrant) continue
-
       const aHorizontalScore = Math.abs(a.direction.x) - Math.abs(a.direction.y)
       const bHorizontalScore = Math.abs(b.direction.x) - Math.abs(b.direction.y)
       const horizontal = aHorizontalScore >= bHorizontalScore ? a : b
@@ -382,7 +432,6 @@ function pickRoadPair(candidates: CandidateRoad[]): SelectedRoadPair | null {
           vertical,
           intersection,
           stopOffset,
-          markerQuadrant: quadrant,
           pairRoadNames: [horizontal.name, vertical.name],
         }
       }
@@ -446,10 +495,6 @@ function selectContextOffsets(
   }
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
-
 function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -459,49 +504,38 @@ function escapeXml(text: string): string {
     .replace(/'/g, "&#39;")
 }
 
-function chooseDirectionLabelPlacement(markerX: number, markerY: number, quadrant: MarkerQuadrant): LabelPlacement {
-  if (quadrant === "nw") {
-    return { directionX: markerX - 10, directionY: markerY - 8, directionAnchor: "end" }
-  }
-  if (quadrant === "ne") {
-    return { directionX: markerX + 10, directionY: markerY - 8, directionAnchor: "start" }
-  }
-  if (quadrant === "sw") {
-    return { directionX: markerX - 10, directionY: markerY + 16, directionAnchor: "end" }
-  }
-  return { directionX: markerX + 10, directionY: markerY + 16, directionAnchor: "start" }
-}
-
-function renderSvg(
-  pair: SelectedRoadPair,
+function renderSvgFromRoadNames(
+  pairRoadNames: [string, string],
   contextOffsets: { horizontal: number[], vertical: number[] },
-  directionLabel?: string,
+  markerQuadrant: MarkerQuadrant,
 ): string {
   const width = 420
   const height = 108
-  const intersectionX = 124
-  const intersectionY = 54
+  const intersectionX = 112
+  const intersectionY = 41
   const pxPerMeter = 0.28
+  const horizontalRoadWidth = 8
+  const verticalRoadWidth = 8
+  const markerRadius = 4.2
+  const markerGap = 1.5
 
-  let markerX = intersectionX + clamp(pair.stopOffset.x * 0.42, -16, 16)
-  let markerY = intersectionY + clamp(pair.stopOffset.y * 0.42, -16, 16)
+  const xDirection = markerQuadrant.endsWith("e") ? 1 : -1
+  const yDirection = markerQuadrant.startsWith("s") ? 1 : -1
+  const markerX = intersectionX + xDirection * (verticalRoadWidth / 2 + markerRadius + markerGap)
+  const markerY = intersectionY + yDirection * (horizontalRoadWidth / 2 + markerRadius + markerGap)
 
-  if (Math.abs(markerX - intersectionX) < 7) {
-    markerX = intersectionX + (pair.stopOffset.x >= 0 ? 9 : -9)
-  }
-  if (Math.abs(markerY - intersectionY) < 7) {
-    markerY = intersectionY + (pair.stopOffset.y >= 0 ? 9 : -9)
-  }
-
-  const hLabel = labelFromName(pair.horizontal.name)
-  const vLabel = labelFromName(pair.vertical.name)
-  const directionPlacement = chooseDirectionLabelPlacement(markerX, markerY, pair.markerQuadrant)
+  const hLabel = labelFromName(pairRoadNames[0])
+  const vLabel = labelFromName(pairRoadNames[1])
+  const horizontalLabelX = intersectionX + 120
+  const horizontalLabelY = intersectionY - 14
+  const verticalLabelX = intersectionX - 13
+  const verticalLabelY = intersectionY + 48
 
   const contextHorizontal = contextOffsets.horizontal
     .map((offset, index) => {
       const y = intersectionY + offset * pxPerMeter
       if (y <= -8 || y >= height + 8) return ""
-      return `<line class="mini-map__context mini-map__context--h" x1="-16" y1="${y.toFixed(2)}" x2="436" y2="${y.toFixed(2)}" data-i="${index}" stroke="#c7c7c7" stroke-width="1.05" opacity="0.5" />`
+      return `<line class="mini-map__context mini-map__context--h" x1="-16" y1="${y.toFixed(2)}" x2="436" y2="${y.toFixed(2)}" data-i="${index}" />`
     })
     .filter(Boolean)
 
@@ -509,26 +543,29 @@ function renderSvg(
     .map((offset, index) => {
       const x = intersectionX + offset * pxPerMeter
       if (x <= -8 || x >= width + 8) return ""
-      return `<line class="mini-map__context mini-map__context--v" x1="${x.toFixed(2)}" y1="-16" x2="${x.toFixed(2)}" y2="124" data-i="${index}" stroke="#c7c7c7" stroke-width="1.05" opacity="0.5" />`
+      return `<line class="mini-map__context mini-map__context--v" x1="${x.toFixed(2)}" y1="-16" x2="${x.toFixed(2)}" y2="124" data-i="${index}" />`
     })
     .filter(Boolean)
-
-  const directionText = directionLabel
-    ? `<text class="mini-map__direction" x="${directionPlacement.directionX.toFixed(2)}" y="${directionPlacement.directionY.toFixed(2)}" text-anchor="${directionPlacement.directionAnchor}" fill="#3f3f3f" font-size="8" font-weight="600">${escapeXml(directionLabel)}</text>`
-    : ""
 
   return [
     `<svg class="mini-map-svg mini-map-svg--schematic" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mini map snapshot">`,
     ...contextHorizontal,
     ...contextVertical,
-    `<line class="mini-map__road mini-map__road--primary mini-map__road--horizontal" x1="-18" y1="${intersectionY}" x2="438" y2="${intersectionY}" stroke="#2f2f2f" stroke-width="2.4" />`,
-    `<line class="mini-map__road mini-map__road--secondary mini-map__road--vertical" x1="${intersectionX}" y1="-18" x2="${intersectionX}" y2="126" stroke="#4e4e4e" stroke-width="2" />`,
-    `<circle class="mini-map__marker" cx="${markerX.toFixed(2)}" cy="${markerY.toFixed(2)}" r="4.9" fill="#171717" />`,
-    `<text class="mini-map__label mini-map__label--horizontal" x="${(intersectionX + 96).toFixed(2)}" y="${(intersectionY - 9).toFixed(2)}" fill="#333" font-size="8.8" font-weight="540" text-anchor="middle">${escapeXml(hLabel)}</text>`,
-    `<text class="mini-map__label mini-map__label--vertical" x="${(intersectionX - 19).toFixed(2)}" y="${(intersectionY + 25).toFixed(2)}" transform="rotate(-90 ${(intersectionX - 19).toFixed(2)} ${(intersectionY + 25).toFixed(2)})" fill="#333" font-size="8.8" font-weight="540" text-anchor="middle">${escapeXml(vLabel)}</text>`,
-    directionText,
+    `<line class="mini-map__road mini-map__road--primary mini-map__road--horizontal" x1="-20" y1="${intersectionY}" x2="442" y2="${intersectionY}" />`,
+    `<line class="mini-map__road mini-map__road--secondary mini-map__road--vertical" x1="${intersectionX}" y1="-20" x2="${intersectionX}" y2="128" />`,
+    `<circle class="mini-map__marker" cx="${markerX.toFixed(2)}" cy="${markerY.toFixed(2)}" r="${markerRadius.toFixed(2)}" />`,
+    `<text class="mini-map__label mini-map__label--horizontal" x="${horizontalLabelX.toFixed(2)}" y="${horizontalLabelY.toFixed(2)}" text-anchor="middle" dominant-baseline="middle">${escapeXml(hLabel)}</text>`,
+    `<text class="mini-map__label mini-map__label--vertical" x="${verticalLabelX.toFixed(2)}" y="${verticalLabelY.toFixed(2)}" transform="rotate(-90 ${verticalLabelX.toFixed(2)} ${verticalLabelY.toFixed(2)})" text-anchor="middle" dominant-baseline="middle">${escapeXml(vLabel)}</text>`,
     `</svg>`,
   ].join("")
+}
+
+function renderSvg(
+  pair: SelectedRoadPair,
+  contextOffsets: { horizontal: number[], vertical: number[] },
+  markerQuadrant: MarkerQuadrant,
+): string {
+  return renderSvgFromRoadNames(pair.pairRoadNames, contextOffsets, markerQuadrant)
 }
 
 function cachePaths(stopCode: string): { svgPath: string, metaPath: string } {
@@ -537,6 +574,48 @@ function cachePaths(stopCode: string): { svgPath: string, metaPath: string } {
     svgPath: path.join(CACHE_DIR, `${stem}.svg`),
     metaPath: path.join(CACHE_DIR, `${stem}.meta.json`),
   }
+}
+
+function legacyCacheMetaPath(
+  stopCode: string,
+  layoutVersion: "v2",
+  renderRevision: number,
+): string {
+  const stem = `${stopCode}.${layoutVersion}.r${renderRevision}`
+  return path.join(CACHE_DIR, `${stem}.meta.json`)
+}
+
+async function readLegacyReadyComposition(
+  stopCode: string,
+): Promise<{ pairRoadNames: [string, string], markerQuadrant: MarkerQuadrant } | null> {
+  for (const candidate of LEGACY_READY_CACHE_CANDIDATES) {
+    try {
+      const rawMeta = await readFile(
+        legacyCacheMetaPath(stopCode, candidate.layoutVersion, candidate.renderRevision),
+        "utf-8",
+      )
+      const meta = JSON.parse(rawMeta) as LegacyReadyCacheMeta
+      if (meta.status !== "ready") continue
+      if (
+        !Array.isArray(meta.pairRoadNames) ||
+        meta.pairRoadNames.length !== 2 ||
+        typeof meta.pairRoadNames[0] !== "string" ||
+        typeof meta.pairRoadNames[1] !== "string"
+      ) {
+        continue
+      }
+      if (!meta.markerQuadrant) continue
+
+      return {
+        pairRoadNames: meta.pairRoadNames,
+        markerQuadrant: meta.markerQuadrant,
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return null
 }
 
 async function readCache(stopCode: string): Promise<MiniMapResponse | null> {
@@ -675,6 +754,17 @@ async function generateMiniMap(stopCode: string): Promise<MiniMapResponse> {
     return writeUnavailable(stopCode, "error", "missing-stop-metadata")
   }
 
+  const renderLegacyFallback = async (): Promise<MiniMapResponse | null> => {
+    const legacy = await readLegacyReadyComposition(stopCode)
+    if (!legacy) return null
+    const svg = renderSvgFromRoadNames(
+      legacy.pairRoadNames,
+      { horizontal: [], vertical: [] },
+      legacy.markerQuadrant,
+    )
+    return writeReady(stopCode, svg, legacy.pairRoadNames, legacy.markerQuadrant)
+  }
+
   try {
     const roads = await fetchRoadGeometry(stop.lat, stop.lon)
     if (roads.length < 2) {
@@ -691,17 +781,22 @@ async function generateMiniMap(stopCode: string): Promise<MiniMapResponse> {
       return writeUnavailable(stopCode, "low_quality", "context-density-over-limit")
     }
 
-    const svg = renderSvg(pair, contextOffsets, stop.directionLabel)
+    const markerQuadrant = resolveMarkerQuadrant(stopCode, pair)
+    const svg = renderSvg(pair, contextOffsets, markerQuadrant)
     if (!svg) {
       return writeUnavailable(stopCode, "low_quality", "svg-render-failed")
     }
 
-    return writeReady(stopCode, svg, pair.pairRoadNames, pair.markerQuadrant)
+    return writeReady(stopCode, svg, pair.pairRoadNames, markerQuadrant)
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      const fallback = await renderLegacyFallback()
+      if (fallback) return fallback
       return writeUnavailable(stopCode, "timeout", "overpass-timeout")
     }
 
+    const fallback = await renderLegacyFallback()
+    if (fallback) return fallback
     return writeUnavailable(stopCode, "error", "generation-exception")
   }
 }

@@ -287,31 +287,48 @@ export default function StopSearchHeader({
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
         >
-          {statusNode}
           {showMiniMap ? (
-            <span className="stop-search__mini-wrap" data-tutorial="default-stop">
-              <span className="stop-search__mini">
-                <span
-                  className={`stop-search__mini-skeleton${miniMapLoading ? ' is-visible' : ''}`}
-                  aria-hidden="true"
-                >
-                  <span className="stop-search__mini-line stop-search__mini-line--h-main" />
-                  <span className="stop-search__mini-line stop-search__mini-line--v-main" />
-                  <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
-                  <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
-                  <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
-                </span>
-                {miniMap?.status === 'ready' && (
+            <span className="stop-search__mini-layout" data-tutorial="default-stop">
+              <span className="stop-search__mini-wrap">
+                <span className="stop-search__mini">
                   <span
-                    className="stop-search__mini-map is-ready"
-                    // SVG is generated server-side from fixed geometry and labels.
-                    dangerouslySetInnerHTML={{ __html: miniMap.svg }}
-                  />
+                    className={`stop-search__mini-skeleton${miniMapLoading ? ' is-visible' : ''}`}
+                    aria-hidden="true"
+                  >
+                    <span className="stop-search__mini-line stop-search__mini-line--h-main" />
+                    <span className="stop-search__mini-line stop-search__mini-line--v-main" />
+                    <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
+                    <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
+                    <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
+                  </span>
+                  {miniMap?.status === 'ready' && (
+                    <span
+                      className="stop-search__mini-map is-ready"
+                      // SVG is generated server-side from fixed geometry and labels.
+                      dangerouslySetInnerHTML={{ __html: miniMap.svg }}
+                    />
+                  )}
+                </span>
+              </span>
+              <span className="stop-search__mini-card">
+                <span className="stop-search__mini-status">{statusNode}</span>
+                {showStopTitle && stopName && (
+                  <span className="stop-search__mini-title-wrap">
+                    <span className="stop-search__mini-title">{formatStopName(stopName)}</span>
+                  </span>
                 )}
+                {showStopTitle && !stopName && (
+                  <span className="stop-search__mini-fallback">Search stop</span>
+                )}
+                {!showStopTitle && (
+                  <span className="stop-search__mini-fallback">Search stop</span>
+                )}
+                <span className="stop-search__mini-caption">Tap to change stop</span>
               </span>
             </span>
           ) : (
             <>
+              {statusNode}
               {showStopTitle && stopName && (
                 <span className="stop-search__title-wrap" data-tutorial="default-stop">
                   <span className="stop-name">{stopName}</span>

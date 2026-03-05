@@ -30,7 +30,7 @@ export type StopMiniMapResponse =
     svg: string
     generatedAt: string
     source: "cache" | "generated"
-    layoutVersion: "v2"
+    layoutVersion: "v2" | "v3"
   }
   | {
     status: "unavailable"
