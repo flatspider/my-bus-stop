@@ -297,6 +297,20 @@ export default function StopSearchHeader({
               Search stop
             </span>
           )}
+          <svg
+            className="stop-search__chevron"
+            width="7"
+            height="12"
+            viewBox="0 0 7 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M1 1l5 5-5 5" />
+          </svg>
         </button>
       ) : (
         <div className="stop-search__input-shell">

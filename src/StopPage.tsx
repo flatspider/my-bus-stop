@@ -324,6 +324,7 @@ export default function StopPage() {
               {showSettingsPanel && (
                 <>
                   <SettingsPanel
+                    inline
                     onRefresh={() => void fetchBusData()}
                     refreshLocked={refreshLocked}
                     isRefreshing={isRefreshing}
@@ -339,7 +340,7 @@ export default function StopPage() {
                       role="status"
                       aria-live="polite"
                     >
-                      More arrivals hidden while settings is open
+                      Additional buses hidden while settings is open.
                     </p>
                   )}
                 </>
