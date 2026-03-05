@@ -33,6 +33,10 @@
   --minimap-skeleton: #eceae4;
   --minimap-skeleton-dark: #3a3a3a;
   --bauhaus-red: #d6452f;
+  --bauhaus-blue: #2f5ae0;
+  --bauhaus-yellow: #e9b21d;
+  --bauhaus-paper: #f3eee4;
+  --bauhaus-ink: #161616;
 }
 
 html.dark {
@@ -143,12 +147,22 @@ body {
   text-align: left;
 }
 
-.stop-search__trigger:not(.stop-search__trigger--mini):not(.stop-search__trigger--icon-only) {
-  min-height: 88px;
-  padding: 24px 18px 24px 24px;
+.stop-search__trigger:not(.stop-search__trigger--mini):not(
+    .stop-search__trigger--icon-only
+  ) {
+  min-height: 104px;
+  padding: 26px 20px 24px 24px;
   border-radius: 16px;
-  background: var(--card-bg);
-  box-shadow: var(--shadow);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, var(--border) 90%);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--card-bg) 92%, white 8%) 0%,
+      var(--card-bg) 100%
+    );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, white 72%, transparent),
+    var(--shadow);
   position: relative;
   overflow: hidden;
   gap: 12px;
@@ -250,7 +264,7 @@ body {
 
 .stop-search__title-accent {
   position: absolute;
-  top: -24px;
+  top: -26px;
   left: 0;
   width: 100%;
   height: 3px;
@@ -553,20 +567,20 @@ html.dark .mini-map__label {
 }
 
 .stop-search__title-wrap .stop-name {
-  font-size: 15px;
-  line-height: 1.14;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-size: 21px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   color: var(--text);
   overflow: hidden;
   text-wrap: pretty;
 }
 
 .stop-search__fallback {
-  font-size: 15px;
-  line-height: 1.14;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-size: 21px;
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   color: var(--text-secondary);
 }
 
@@ -581,18 +595,24 @@ html.dark .mini-map__label {
 .stop-search__input {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
+  border: 1.5px solid color-mix(in srgb, var(--bauhaus-red) 38%, var(--border) 62%);
+  background: #fff;
   color: var(--text);
   border-radius: 10px;
   padding: 10px 40px 10px 12px;
   font-size: 16px;
   font-family: inherit;
+  box-shadow: none;
+}
+
+.stop-search__input::placeholder {
+  color: var(--text-muted);
 }
 
 .stop-search__input:focus {
   outline: none;
-  border-color: var(--text-muted);
+  border-color: var(--bauhaus-red);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bauhaus-red) 10%, transparent);
 }
 
 .stop-search__close-inline {
@@ -613,19 +633,19 @@ html.dark .mini-map__label {
 }
 
 .stop-search__close-inline:active {
-  background: rgba(128, 128, 128, 0.16);
+  background: rgba(128, 128, 128, 0.12);
   color: var(--text);
 }
 
 .stop-search__dropdown {
   position: static;
   border-radius: 14px;
-  background: var(--card-bg);
+  background: #fff;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
   max-height: 260px;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
   margin-top: 8px;
   animation: stop-search-dropdown-enter 140ms ease-out;
 }
@@ -644,8 +664,8 @@ html.dark .mini-map__label {
 
 .stop-search__section-label {
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
   padding: 0 4px 4px;
@@ -653,22 +673,73 @@ html.dark .mini-map__label {
 
 .stop-search__location-cta {
   width: 100%;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border: 1.5px solid color-mix(in srgb, var(--bauhaus-blue) 20%, var(--border) 80%);
+  background: var(--bauhaus-paper);
+  color: var(--bauhaus-ink);
+  border-radius: 4px;
+  padding: 12px;
   font-size: 13px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.stop-search__location-cta:active {
+  background: color-mix(in srgb, var(--bauhaus-yellow) 14%, var(--bauhaus-paper) 86%);
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--bauhaus-blue) 28%, transparent);
+  transform: translateY(1px);
+}
+
+.stop-search__location-cta:disabled {
+  opacity: 0.72;
+  cursor: default;
+  transform: none;
+}
+
+.stop-search__location-cta-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--bauhaus-blue);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.stop-search__location-cta-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.stop-search__location-cta-label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.stop-search__location-cta-meta {
+  font-size: 11px;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--bauhaus-ink) 46%, white 54%);
 }
 
 .stop-search__result {
   border: none;
   background: transparent;
   color: var(--text);
-  border-radius: 10px;
-  padding: 9px 10px;
+  border-radius: 4px;
+  padding: 10px 10px;
   text-align: left;
   display: flex;
   align-items: flex-start;
@@ -682,7 +753,7 @@ html.dark .mini-map__label {
 }
 
 .stop-search__result:active {
-  background: rgba(128, 128, 128, 0.12);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .stop-search__result-main {
@@ -869,8 +940,8 @@ html.dark .bus-card--settings {
 .bus-card__row {
   display: flex;
   align-items: baseline;
-  padding: 24px;
-  gap: 6px;
+  padding: 20px;
+  gap: 12px;
 }
 
 .bus-card__route {
@@ -884,12 +955,29 @@ html.dark .bus-card--settings {
 }
 
 .bus-card__minutes {
-  font-size: 36px;
-  font-weight: 300;
-  letter-spacing: -1px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
   flex: 1;
   min-width: 0;
+}
+
+.bus-card__minutes--now {
+  gap: 0;
+}
+
+.bus-card__minutes-value {
+  font-size: 74px;
+  font-weight: 300;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+}
+
+.bus-card__minutes-suffix {
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--text-secondary);
 }
 
 .bus-card__no-data {
@@ -908,6 +996,10 @@ html.dark .bus-card--settings {
 html.dark .bus-card__stops-away {
   color: #c9c9c9;
   font-weight: 500;
+}
+
+html.dark .bus-card__minutes-suffix {
+  color: #a8a8a8;
 }
 
 .bus-card__vehicle-dot {
@@ -1546,12 +1638,62 @@ html.dark .bus-card__vehicle-dot--fallback {
     font-size: 11px;
   }
 
+  .stop-search__title-wrap .stop-name,
+  .stop-search__fallback {
+    font-size: 26px;
+    line-height: 0.96;
+    letter-spacing: -0.05em;
+  }
+
   .stop-search__dropdown {
     max-height: 260px;
   }
 
   .bus-card__accent {
     display: none;
+  }
+
+  .cards,
+  .cards__list,
+  .cards__lower {
+    gap: 20px;
+  }
+
+  .bus-card {
+    border-radius: 18px;
+  }
+
+  .bus-card__row {
+    padding: 24px 24px 22px;
+    gap: 16px;
+  }
+
+  .bus-card__route {
+    font-size: 22px;
+    min-width: 58px;
+  }
+
+  .bus-card__minutes {
+    gap: 10px;
+  }
+
+  .bus-card__minutes-value {
+    font-size: 92px;
+    line-height: 0.88;
+  }
+
+  .bus-card__minutes-suffix {
+    font-size: 34px;
+  }
+
+  .bus-card__stops-away {
+    font-size: 14px;
+  }
+
+  .bus-card__vehicle-dot {
+    width: 10px;
+    height: 10px;
+    margin-left: 10px;
   }
 
   .tutorial-tooltip {

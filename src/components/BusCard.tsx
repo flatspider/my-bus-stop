@@ -83,7 +83,6 @@ export default function BusCard({
     document.documentElement.classList.contains("dark");
   const color = getRouteColor(route, darkMode);
   const routeName = route;
-
   const handleCardClick = () => {
     const mtaUrl = `https://bustime.mta.info/m/index?q=${routeName}`;
     if (window.confirm(`Open MTA page for ${routeName}?`)) {
@@ -94,12 +93,7 @@ export default function BusCard({
   const rawMinutes = arrival.minutes
     .replace(/\s*minutes?/, "")
     .replace(/approaching/i, "now");
-  const displayMinutes =
-    rawMinutes === "now"
-      ? "now"
-      : showMinSuffix
-        ? `${rawMinutes} min`
-        : rawMinutes;
+  const showNowLabel = rawMinutes === "now";
   const isApproaching =
     arrival.minutesNum === 0 || /approaching/i.test(arrival.minutes);
   const hasLiveVehicle = arrival.vehicleId.trim().length > 0;
@@ -126,7 +120,12 @@ export default function BusCard({
             {routeName}
           </span>
         )}
-        <span className="bus-card__minutes">{displayMinutes}</span>
+        <span className={`bus-card__minutes${showNowLabel ? " bus-card__minutes--now" : ""}`}>
+          <span className="bus-card__minutes-value">{rawMinutes}</span>
+          {!showNowLabel && showMinSuffix && (
+            <span className="bus-card__minutes-suffix">min</span>
+          )}
+        </span>
         {showStopsAway && arrival.stopsAway && (
           <span className="bus-card__stops-away">{arrival.stopsAway}</span>
         )}

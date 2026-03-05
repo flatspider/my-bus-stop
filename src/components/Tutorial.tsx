@@ -8,6 +8,18 @@ const SETTINGS_STEP_STABLE_FRAMES = 3;
 const RECT_STABLE_DELTA_PX = 0.75;
 const SECONDARY_SPOT_INSET_PX = 6;
 const DEFAULT_SPOT_INSETS = { top: 8, right: 8, bottom: 8, left: 8 };
+const DEFAULT_STOP_SPOT_INSETS_MOBILE = {
+  top: 8,
+  right: 8,
+  bottom: 8,
+  left: 8,
+};
+const DEFAULT_STOP_SPOT_INSETS_DESKTOP = {
+  top: 8,
+  right: 4,
+  bottom: 8,
+  left: 12,
+};
 const STOP_INPUT_SPOT_INSETS_DESKTOP = {
   top: 14,
   right: 10,
@@ -83,6 +95,11 @@ function measureSecondaryTarget(stepIndex: number): DOMRect | null {
 }
 
 function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
+  if (STEPS[stepIndex].target === '[data-tutorial="default-stop"]') {
+    return isMobile
+      ? DEFAULT_STOP_SPOT_INSETS_MOBILE
+      : DEFAULT_STOP_SPOT_INSETS_DESKTOP;
+  }
   if (STEPS[stepIndex].target === '[data-tutorial="stop-input"]') {
     return isMobile
       ? STOP_INPUT_SPOT_INSETS_MOBILE
