@@ -18,7 +18,7 @@ import { fetchStopMiniMap } from "./stopSearchApi";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import type { StopMiniMapResponse } from "./types";
-import { isMiniMapUrlEnabled } from "./urlFlags";
+import { isMiniMapUrlEnabled, shouldForceLeadCardNow } from "./urlFlags";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
 type ReadyMiniMap = Extract<StopMiniMapResponse, { status: "ready" }>;
@@ -33,6 +33,7 @@ export default function StopPage() {
   const navigate = useNavigate();
   const normalizedStopCode = stopCode?.trim() ?? "";
   const miniMapUrlEnabled = isMiniMapUrlEnabled(location.search);
+  const forceLeadCardNow = shouldForceLeadCardNow(location.search);
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
   const [stopName, setStopName] = useState("");
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -249,6 +250,10 @@ export default function StopPage() {
   const showSettingsPanel = settingsOpen;
   const topCard = displayCards[0];
   const lowerCards = displayCards.slice(1);
+  const topCardArrival =
+    topCard && forceLeadCardNow
+      ? { ...topCard.arrival, minutes: "now", minutesNum: 0 }
+      : topCard?.arrival;
   const resolvedMiniMap =
     miniMap?.status === "ready"
       ? miniMap
@@ -396,7 +401,7 @@ export default function StopPage() {
               <div className="cards__lead" data-tutorial="card">
                 <div className={getCardShellClassName(topCard.id)}>
                   <BusCard
-                    arrival={topCard.arrival}
+                    arrival={topCardArrival ?? topCard.arrival}
                     route={topCard.route}
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}

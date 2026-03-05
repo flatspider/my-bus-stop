@@ -143,7 +143,9 @@ body {
   text-align: left;
 }
 
-.stop-search__trigger:not(.stop-search__trigger--mini):not(.stop-search__trigger--icon-only) {
+.stop-search__trigger:not(.stop-search__trigger--mini):not(
+    .stop-search__trigger--icon-only
+  ) {
   min-height: 104px;
   padding: 26px 20px 24px 24px;
   border-radius: 16px;
@@ -1569,8 +1571,9 @@ html.dark .bus-card__vehicle-dot--fallback {
 
   .stop-search__title-wrap .stop-name,
   .stop-search__fallback {
-    font-size: 18px;
-    line-height: 1.1;
+    font-size: 26px;
+    line-height: 0.96;
+    letter-spacing: -0.05em;
   }
 
   .stop-search__dropdown {
@@ -1579,6 +1582,49 @@ html.dark .bus-card__vehicle-dot--fallback {
 
   .bus-card__accent {
     display: none;
+  }
+
+  .cards,
+  .cards__list,
+  .cards__lower {
+    gap: 20px;
+  }
+
+  .bus-card {
+    border-radius: 18px;
+  }
+
+  .bus-card__row {
+    padding: 24px 24px 22px;
+    gap: 16px;
+  }
+
+  .bus-card__route {
+    font-size: 22px;
+    min-width: 58px;
+  }
+
+  .bus-card__minutes {
+    gap: 10px;
+  }
+
+  .bus-card__minutes-value {
+    font-size: 92px;
+    line-height: 0.88;
+  }
+
+  .bus-card__minutes-suffix {
+    font-size: 34px;
+  }
+
+  .bus-card__stops-away {
+    font-size: 14px;
+  }
+
+  .bus-card__vehicle-dot {
+    width: 10px;
+    height: 10px;
+    margin-left: 10px;
   }
 
   .tutorial-tooltip {
