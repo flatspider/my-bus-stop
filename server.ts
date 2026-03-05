@@ -151,6 +151,25 @@ app.get("/api/snapshots", async (_req, res) => {
   }
 });
 
+app.get("/api/snapshots/download", async (_req, res) => {
+  try {
+    const raw = await readFile(JSONL_PATH, "utf-8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    const snapshots = lines.map((line) => JSON.parse(line));
+    const filename = `snapshots-${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/json");
+    res.json(snapshots);
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      res.status(404).json({ error: "No snapshots file found" });
+    } else {
+      console.error("Error reading snapshots:", err);
+      res.status(500).json({ error: "Failed to read snapshots" });
+    }
+  }
+});
+
 // Serve static files from dist/
 app.use(express.static(path.join(__dirname, "dist")));
 
