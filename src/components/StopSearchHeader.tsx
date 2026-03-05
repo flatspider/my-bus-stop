@@ -1,196 +1,216 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import { flushSync } from 'react-dom'
-import { fetchNearbyStops, searchStops } from '../stopSearchApi'
-import type { StopSearchResult } from '../types'
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
+import { fetchNearbyStops, searchStops } from "../stopSearchApi";
+import { formatStopName } from "../formatStopName";
+import type { StopMiniMapResponse, StopSearchResult } from "../types";
 
-const RECENT_STOPS_KEY = 'buswatch-stop-search-recents'
-const SEARCH_LIMIT = 5
-const NEARBY_LIMIT = 3
-const MAX_VISIBLE_RESULTS = 5
+const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
+const SEARCH_LIMIT = 5;
+const NEARBY_LIMIT = 3;
+const MAX_VISIBLE_RESULTS = 5;
 
 interface StopSearchHeaderProps {
-  stopName: string
-  showStopTitle: boolean
-  statusNode: ReactNode
-  onSelectStop: (code: string) => void
-  onExpandedChange?: (isExpanded: boolean) => void
+  stopName: string;
+  showStopTitle: boolean;
+  showMiniMap: boolean;
+  miniMapLoading: boolean;
+  miniMap: StopMiniMapResponse | null;
+  statusNode: ReactNode;
+  onSelectStop: (code: string) => void;
+  onExpandedChange?: (isExpanded: boolean) => void;
 }
 
 interface GeoState {
-  lat: number
-  lon: number
+  lat: number;
+  lon: number;
 }
 
-type LocationState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable'
+type LocationState =
+  | "idle"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "unavailable";
 
 function loadRecents(): StopSearchResult[] {
   try {
-    const raw = localStorage.getItem(RECENT_STOPS_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
+    const raw = localStorage.getItem(RECENT_STOPS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
 
     return parsed
       .filter((item): item is StopSearchResult => {
-        if (!item || typeof item !== 'object') return false
-        const maybe = item as Partial<StopSearchResult>
-        return typeof maybe.code === 'string' && typeof maybe.name === 'string'
+        if (!item || typeof item !== "object") return false;
+        const maybe = item as Partial<StopSearchResult>;
+        return typeof maybe.code === "string" && typeof maybe.name === "string";
       })
-      .slice(0, 3)
+      .slice(0, 3);
   } catch {
-    return []
+    return [];
   }
 }
 
 function formatDistance(distanceMeters: number | undefined): string {
-  if (distanceMeters === undefined) return ''
+  if (distanceMeters === undefined) return "";
 
-  const miles = distanceMeters / 1609.344
+  const miles = distanceMeters / 1609.344;
   if (miles >= 0.95) {
-    return `${miles.toFixed(1)} mi`
+    return `${miles.toFixed(1)} mi`;
   }
 
-  return `${Math.max(0.05, miles).toFixed(2)} mi`
+  return `${Math.max(0.05, miles).toFixed(2)} mi`;
 }
 
-function dedupeResults(primary: StopSearchResult[], secondary: StopSearchResult[]): StopSearchResult[] {
-  const seen = new Set(primary.map((item) => item.code))
-  const merged = [...primary]
+function dedupeResults(
+  primary: StopSearchResult[],
+  secondary: StopSearchResult[],
+): StopSearchResult[] {
+  const seen = new Set(primary.map((item) => item.code));
+  const merged = [...primary];
   for (const item of secondary) {
-    if (seen.has(item.code)) continue
-    seen.add(item.code)
-    merged.push(item)
+    if (seen.has(item.code)) continue;
+    seen.add(item.code);
+    merged.push(item);
   }
-  return merged
-}
-
-function formatStopName(raw: string): string {
-  const upperTokens = new Set([
-    'AV', 'ST', 'RD', 'BLVD', 'DR', 'PL', 'LN', 'PKWY',
-    'NB', 'SB', 'EB', 'WB', 'E', 'W', 'N', 'S',
-  ])
-
-  const withDelimiters = raw
-    .replace(/\//g, ' / ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-
-  return withDelimiters
-    .split(' ')
-    .map((token) => {
-      if (!token) return ''
-      if (token === '/' || token === '-' || token === '&') return token
-      if (/^\d+$/.test(token)) return token
-
-      const upper = token.toUpperCase()
-      if (upperTokens.has(upper)) return upper
-
-      return token.charAt(0).toUpperCase() + token.slice(1)
-    })
-    .join(' ')
-    .replace(/\s+\/\s+/g, ' / ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return merged;
 }
 
 function extractDirectionLabel(raw: string): string | null {
-  const text = raw.toUpperCase()
-  if (text.includes('NORTHBOUND') || /\bNB\b/.test(text)) return 'Northbound'
-  if (text.includes('SOUTHBOUND') || /\bSB\b/.test(text)) return 'Southbound'
-  if (text.includes('EASTBOUND') || /\bEB\b/.test(text)) return 'Eastbound'
-  if (text.includes('WESTBOUND') || /\bWB\b/.test(text)) return 'Westbound'
-  if (text.includes('UPTOWN')) return 'Uptown'
-  if (text.includes('DOWNTOWN')) return 'Downtown'
-  return null
+  const text = raw.toUpperCase();
+  if (text.includes("NORTHBOUND") || /\bNB\b/.test(text)) return "Northbound";
+  if (text.includes("SOUTHBOUND") || /\bSB\b/.test(text)) return "Southbound";
+  if (text.includes("EASTBOUND") || /\bEB\b/.test(text)) return "Eastbound";
+  if (text.includes("WESTBOUND") || /\bWB\b/.test(text)) return "Westbound";
+  if (text.includes("UPTOWN")) return "Uptown";
+  if (text.includes("DOWNTOWN")) return "Downtown";
+  return null;
 }
 
 function displayDirection(item: StopSearchResult): string | null {
-  const direction = item.directionLabel ?? extractDirectionLabel(item.name)
-  if (!direction || direction === 'Unknown direction') return null
-  return direction
+  const direction = item.directionLabel ?? extractDirectionLabel(item.name);
+  if (!direction || direction === "Unknown direction") return null;
+  return direction;
+}
+
+function renderStopTitle(raw: string, className: string): ReactNode {
+  const formatted = formatStopName(raw);
+  const parts = formatted.split(" and ");
+  const shouldStackWithAmpersand = parts.length === 2;
+
+  if (!shouldStackWithAmpersand) {
+    return <span className={className}>{formatted}</span>;
+  }
+
+  return (
+    <span className={`${className} ${className}--stacked`}>
+      {parts.map((part, index) => (
+        <span className={`${className}__part`} key={`${part}-${index}`}>
+          {index > 0 ? (
+            <span className={`${className}__line`}>
+              <span className={`${className}__joiner`} aria-hidden="true">
+                &amp;
+              </span>
+              <span className={`${className}__text`}>{part}</span>
+            </span>
+          ) : (
+          <span className={`${className}__text`}>{part}</span>
+          )}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export default function StopSearchHeader({
   stopName,
   showStopTitle,
+  showMiniMap,
+  miniMapLoading,
+  miniMap,
   statusNode,
   onSelectStop,
   onExpandedChange,
 }: StopSearchHeaderProps) {
-  const supportsGeolocation = typeof navigator !== 'undefined' && 'geolocation' in navigator
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [query, setQuery] = useState('')
-  const [geo, setGeo] = useState<GeoState | null>(null)
+  const supportsGeolocation =
+    typeof navigator !== "undefined" && "geolocation" in navigator;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [geo, setGeo] = useState<GeoState | null>(null);
   const [locationState, setLocationState] = useState<LocationState>(
-    supportsGeolocation ? 'idle' : 'unavailable',
-  )
-  const [nearestStops, setNearestStops] = useState<StopSearchResult[]>([])
-  const [searchResults, setSearchResults] = useState<StopSearchResult[]>([])
-  const [recents, setRecents] = useState<StopSearchResult[]>(() => loadRecents())
-  const [statusMessage, setStatusMessage] = useState('')
+    supportsGeolocation ? "idle" : "unavailable",
+  );
+  const [nearestStops, setNearestStops] = useState<StopSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<StopSearchResult[]>([]);
+  const [recents, setRecents] = useState<StopSearchResult[]>(() =>
+    loadRecents(),
+  );
+  const [statusMessage, setStatusMessage] = useState("");
 
-  const wrapperRef = useRef<HTMLDivElement | null>(null)
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const searchAbortRef = useRef<AbortController | null>(null)
-  const nearbyAbortRef = useRef<AbortController | null>(null)
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const nearbyAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
-      searchAbortRef.current?.abort()
-      nearbyAbortRef.current?.abort()
-    }
-  }, [])
+      searchAbortRef.current?.abort();
+      nearbyAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
-    onExpandedChange?.(isExpanded)
-  }, [isExpanded, onExpandedChange])
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
 
   useEffect(() => {
-    if (!isExpanded) return
+    if (!isExpanded) return;
 
     function onPointerDown(event: MouseEvent) {
-      if (!wrapperRef.current) return
+      if (!wrapperRef.current) return;
       if (!wrapperRef.current.contains(event.target as Node)) {
-        setIsExpanded(false)
+        setIsExpanded(false);
       }
     }
 
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [isExpanded])
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [isExpanded]);
 
   useEffect(() => {
-    if (!geo || !isExpanded) return
+    if (!geo || !isExpanded) return;
 
-    nearbyAbortRef.current?.abort()
-    const controller = new AbortController()
-    nearbyAbortRef.current = controller
+    nearbyAbortRef.current?.abort();
+    const controller = new AbortController();
+    nearbyAbortRef.current = controller;
 
     void fetchNearbyStops(geo.lat, geo.lon, {
       limit: NEARBY_LIMIT,
       signal: controller.signal,
-    }).then((results) => {
-      setNearestStops(results)
-    }).catch((error) => {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      setStatusMessage('Unable to load nearby stops right now.')
     })
+      .then((results) => {
+        setNearestStops(results);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        setStatusMessage("Unable to load nearby stops right now.");
+      });
 
-    return () => controller.abort()
-  }, [geo, isExpanded])
+    return () => controller.abort();
+  }, [geo, isExpanded]);
 
   useEffect(() => {
-    if (!isExpanded) return
+    if (!isExpanded) return;
 
-    const normalizedQuery = query.trim()
-    searchAbortRef.current?.abort()
+    const normalizedQuery = query.trim();
+    searchAbortRef.current?.abort();
 
-    if (!normalizedQuery) return
+    if (!normalizedQuery) return;
 
-    const controller = new AbortController()
-    searchAbortRef.current = controller
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
 
     const timer = window.setTimeout(() => {
       void searchStops(normalizedQuery, {
@@ -198,104 +218,213 @@ export default function StopSearchHeader({
         lon: geo?.lon,
         limit: SEARCH_LIMIT,
         signal: controller.signal,
-      }).then((results) => {
-        setSearchResults(results)
-      }).catch((error) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        setStatusMessage('Search unavailable right now.')
       })
-    }, 100)
+        .then((results) => {
+          setSearchResults(results);
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError")
+            return;
+          setStatusMessage("Search unavailable right now.");
+        });
+    }, 100);
 
     return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [geo?.lat, geo?.lon, isExpanded, query])
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [geo?.lat, geo?.lon, isExpanded, query]);
 
   useEffect(() => {
-    localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)))
-  }, [recents])
+    localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)));
+  }, [recents]);
 
   const dropdownResults = useMemo(() => {
-    const normalizedQuery = query.trim()
-    if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS)
-    return dedupeResults(nearestStops, recents).slice(0, MAX_VISIBLE_RESULTS)
-  }, [nearestStops, query, recents, searchResults])
+    const normalizedQuery = query.trim();
+    if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS);
+    return dedupeResults(nearestStops, recents).slice(0, MAX_VISIBLE_RESULTS);
+  }, [nearestStops, query, recents, searchResults]);
 
   function handleOpenSearch() {
     flushSync(() => {
-      setIsExpanded(true)
-      setStatusMessage('')
-    })
-    inputRef.current?.focus({ preventScroll: true })
+      setIsExpanded(true);
+      setStatusMessage("");
+    });
+    inputRef.current?.focus({ preventScroll: true });
   }
 
   function closeSearch() {
-    setQuery('')
-    setIsExpanded(false)
-    setStatusMessage('')
+    setQuery("");
+    setIsExpanded(false);
+    setStatusMessage("");
   }
 
   function handleSelect(stop: StopSearchResult) {
     setRecents((prev) => {
-      const deduped = [stop, ...prev.filter((entry) => entry.code !== stop.code)]
-      return deduped.slice(0, 3)
-    })
+      const deduped = [
+        stop,
+        ...prev.filter((entry) => entry.code !== stop.code),
+      ];
+      return deduped.slice(0, 3);
+    });
 
-    onSelectStop(stop.code)
-    closeSearch()
+    onSelectStop(stop.code);
+    closeSearch();
   }
 
   function requestLocationManually() {
     if (!supportsGeolocation) {
-      setLocationState('unavailable')
-      setStatusMessage('Location unavailable on this device.')
-      return
+      setLocationState("unavailable");
+      setStatusMessage("Location unavailable on this device.");
+      return;
     }
 
-    setLocationState('requesting')
+    setLocationState("requesting");
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setGeo({ lat: position.coords.latitude, lon: position.coords.longitude })
-        setLocationState('granted')
-        setStatusMessage('')
+        setGeo({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        });
+        setLocationState("granted");
+        setStatusMessage("");
       },
       () => {
-        setLocationState('denied')
-        setStatusMessage('Location not enabled. You can still search any stop.')
+        setLocationState("denied");
+        setStatusMessage(
+          "Location not enabled. You can still search any stop.",
+        );
       },
       {
         enableHighAccuracy: false,
         maximumAge: 120_000,
         timeout: 10_000,
       },
-    )
+    );
   }
 
   return (
-    <div className="stop-search" ref={wrapperRef}>
+    <div
+      className={`stop-search${!showMiniMap && !showStopTitle ? " stop-search--icon-only" : ""}`}
+      ref={wrapperRef}
+    >
       {!isExpanded ? (
         <button
           type="button"
-          className="stop-search__trigger"
+          className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}${!showMiniMap && !showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
         >
-          {statusNode}
-          {showStopTitle && stopName && (
-            <span className="stop-search__title-wrap" data-tutorial="default-stop">
-              <span className="stop-name">{stopName}</span>
+          {showMiniMap ? (
+            <span
+              className="stop-search__mini-layout"
+              data-tutorial="default-stop"
+            >
+              <span className="stop-search__mini-wrap">
+                <span className="stop-search__mini">
+                  <span
+                    className={`stop-search__mini-skeleton${miniMapLoading ? " is-visible" : ""}`}
+                    aria-hidden="true"
+                  >
+                    <span className="stop-search__mini-line stop-search__mini-line--h-main" />
+                    <span className="stop-search__mini-line stop-search__mini-line--v-main" />
+                    <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
+                    <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
+                    <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
+                  </span>
+                  {miniMap?.status === "ready" && (
+                    <span
+                      className="stop-search__mini-map is-ready"
+                      // SVG is generated server-side from fixed geometry and labels.
+                      dangerouslySetInnerHTML={{ __html: miniMap.svg }}
+                    />
+                  )}
+                </span>
+              </span>
+              <span className="stop-search__mini-card">
+                <span className="stop-search__mini-status">{statusNode}</span>
+                {showStopTitle && stopName && (
+                  <span className="stop-search__mini-title-wrap">
+                    {renderStopTitle(stopName, "stop-search__mini-title")}
+                  </span>
+                )}
+                {showStopTitle && !stopName && (
+                  <span className="stop-search__mini-fallback">
+                    Search stop
+                  </span>
+                )}
+                {!showStopTitle && (
+                  <span className="stop-search__mini-fallback">
+                    Search stop
+                  </span>
+                )}
+                <span className="stop-search__mini-caption">
+                  Tap to change stop
+                </span>
+              </span>
             </span>
+          ) : (
+            <>
+              {showStopTitle && statusNode}
+              {showStopTitle && stopName && (
+                <span
+                  className="stop-search__title-wrap"
+                  data-tutorial="default-stop"
+                >
+                  <span className="stop-search__title-block">
+                    <span className="stop-search__title-accent" aria-hidden="true" />
+                    {renderStopTitle(stopName, "stop-name")}
+                  </span>
+                </span>
+              )}
+              {showStopTitle && !stopName && (
+                <span
+                  className="stop-search__fallback"
+                  data-tutorial="default-stop"
+                >
+                  <span className="stop-search__title-block">
+                    <span className="stop-search__title-accent" aria-hidden="true" />
+                    Search stop
+                  </span>
+                </span>
+              )}
+              {!showStopTitle && (
+                <span className="stop-search__icon-only" data-tutorial="default-stop">
+                  {statusNode}
+                  <svg
+                    className="stop-search__icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                </span>
+              )}
+            </>
           )}
-          {showStopTitle && !stopName && (
-            <span className="stop-search__fallback" data-tutorial="default-stop">
-              Search stop
-            </span>
-          )}
-          {!showStopTitle && (
-            <span className="stop-search__fallback" data-tutorial="default-stop">
-              Search stop
-            </span>
+          {showStopTitle && !showMiniMap && (
+            <svg
+              className="stop-search__chevron"
+              width="8"
+              height="16"
+              viewBox="0 0 8 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M1.5 1.5l5 6.5-5 6.5" />
+            </svg>
           )}
         </button>
       ) : (
@@ -334,15 +463,21 @@ export default function StopSearchHeader({
       )}
 
       {isExpanded && (
-        <div className="stop-search__dropdown" role="listbox" aria-label="Stop search results">
-          {!query.trim() && locationState !== 'granted' && (
+        <div
+          className="stop-search__dropdown"
+          role="listbox"
+          aria-label="Stop search results"
+        >
+          {!query.trim() && locationState !== "granted" && (
             <button
               type="button"
               className="stop-search__location-cta"
               onClick={requestLocationManually}
-              disabled={locationState === 'requesting'}
+              disabled={locationState === "requesting"}
             >
-              {locationState === 'requesting' ? 'Locating...' : 'Use my location'}
+              {locationState === "requesting"
+                ? "Locating..."
+                : "Use my location"}
             </button>
           )}
 
@@ -358,13 +493,19 @@ export default function StopSearchHeader({
                 >
                   <span className="stop-search__result-main">
                     <span className="stop-search__result-line">
-                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      <span className="stop-search__result-name">
+                        {formatStopName(item.name)}
+                      </span>
                       {displayDirection(item) && (
-                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                        <span className="stop-search__result-direction">
+                          {displayDirection(item)}
+                        </span>
                       )}
                     </span>
                   </span>
-                  <span className="stop-search__result-meta">{formatDistance(item.distanceMeters)}</span>
+                  <span className="stop-search__result-meta">
+                    {formatDistance(item.distanceMeters)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -382,9 +523,13 @@ export default function StopSearchHeader({
                 >
                   <span className="stop-search__result-main">
                     <span className="stop-search__result-line">
-                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      <span className="stop-search__result-name">
+                        {formatStopName(item.name)}
+                      </span>
                       {displayDirection(item) && (
-                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                        <span className="stop-search__result-direction">
+                          {displayDirection(item)}
+                        </span>
                       )}
                     </span>
                   </span>
@@ -405,14 +550,20 @@ export default function StopSearchHeader({
                 >
                   <span className="stop-search__result-main">
                     <span className="stop-search__result-line">
-                      <span className="stop-search__result-name">{formatStopName(item.name)}</span>
+                      <span className="stop-search__result-name">
+                        {formatStopName(item.name)}
+                      </span>
                       {displayDirection(item) && (
-                        <span className="stop-search__result-direction">{displayDirection(item)}</span>
+                        <span className="stop-search__result-direction">
+                          {displayDirection(item)}
+                        </span>
                       )}
                     </span>
                   </span>
                   <span className="stop-search__result-meta">
-                    {item.distanceMeters !== undefined ? formatDistance(item.distanceMeters) : ''}
+                    {item.distanceMeters !== undefined
+                      ? formatDistance(item.distanceMeters)
+                      : ""}
                   </span>
                 </button>
               ))}
@@ -423,16 +574,23 @@ export default function StopSearchHeader({
             <p className="stop-search__empty">No stops found.</p>
           )}
 
-          {!query.trim() && nearestStops.length === 0 && recents.length === 0 && locationState === 'granted' && (
-            <p className="stop-search__empty">No nearby stops found.</p>
-          )}
+          {!query.trim() &&
+            nearestStops.length === 0 &&
+            recents.length === 0 &&
+            locationState === "granted" && (
+              <p className="stop-search__empty">No nearby stops found.</p>
+            )}
 
-          {statusMessage && <p className="stop-search__status">{statusMessage}</p>}
-          {!statusMessage && locationState === 'unavailable' && (
-            <p className="stop-search__status">Location unavailable on this device.</p>
+          {statusMessage && (
+            <p className="stop-search__status">{statusMessage}</p>
+          )}
+          {!statusMessage && locationState === "unavailable" && (
+            <p className="stop-search__status">
+              Location unavailable on this device.
+            </p>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }

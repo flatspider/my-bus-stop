@@ -29,6 +29,7 @@ let correctionMap: Record<string, string> = {}
 let knownStopCodes = new Set<string>()
 let hasWarnedSearchUnavailable = false
 let hasWarnedNearbyUnavailable = false
+let stopByCode = new Map<string, SearchIndexedStop>()
 let enrichedDirectionByCode = new Map<string, {
   directionLabel: string
   directionShort: "NB" | "SB" | "EB" | "WB" | "VAR" | "UNK"
@@ -70,6 +71,14 @@ export interface SearchDebugResult {
     recencyScore: number
   }>
   results: StopSearchResult[]
+}
+
+export interface StopMiniMapMeta {
+  code: string
+  name: string
+  lat: number
+  lon: number
+  directionLabel?: string
 }
 
 function clampLimit(limit: number | undefined, fallback: number): number {
@@ -335,13 +344,33 @@ export async function loadStopsIndex(): Promise<void> {
 
 function rebuildKnownStopCodes(): void {
   const next = new Set<string>()
+  const nextStops = new Map<string, SearchIndexedStop>()
   for (const stop of cachedStopsV2) {
     next.add(stop.code)
+    if (!nextStops.has(stop.code)) {
+      nextStops.set(stop.code, stop)
+    }
   }
   for (const code of enrichedDirectionByCode.keys()) {
     next.add(code)
   }
   knownStopCodes = next
+  stopByCode = nextStops
+}
+
+export function getStopMiniMapMeta(stopCode: string): StopMiniMapMeta | null {
+  if (!/^\d{6}$/.test(stopCode)) return null
+  const stop = stopByCode.get(stopCode)
+  if (!stop) return null
+
+  const directionMeta = enrichedDirectionByCode.get(stopCode)
+  return {
+    code: stop.code,
+    name: stop.name,
+    lat: stop.lat,
+    lon: stop.lon,
+    ...(directionMeta?.directionLabel ? { directionLabel: directionMeta.directionLabel } : {}),
+  }
 }
 
 export function stopCodeExists(stopCode: string): boolean {

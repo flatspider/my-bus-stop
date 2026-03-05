@@ -5,6 +5,7 @@ export interface Settings {
   showRouteName: boolean
   showStopsAway: boolean
   showStopTitle: boolean
+  miniMapBeta: boolean
   darkMode: boolean
 }
 
@@ -15,6 +16,7 @@ const DEFAULTS: Settings = {
   showRouteName: true,
   showStopsAway: true,
   showStopTitle: true,
+  miniMapBeta: false,
   darkMode: false,
 }
 

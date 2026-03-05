@@ -7,6 +7,7 @@ import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } f
 import { compareAndLog, JSONL_PATH } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
+import { getStopMiniMap } from "./server/miniMap.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -110,6 +111,22 @@ app.get("/api/stops/exists", (req, res) => {
   res.json({ exists: stopCodeExists(code) });
 });
 
+app.get("/api/stops/minimap", async (req, res) => {
+  const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
+  if (!/^\d{6}$/.test(code)) {
+    res.status(400).json({ error: "Missing or invalid code parameter" });
+    return;
+  }
+
+  const payload = await getStopMiniMap(code);
+  if (payload.status === "ready") {
+    res.setHeader("Cache-Control", "public, max-age=86400");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=1800");
+  }
+  res.json(payload);
+});
+
 if (!isProduction) {
   app.post("/api/stops/reload", async (_req, res) => {
     await loadStopsIndex();
@@ -127,6 +144,25 @@ app.get("/api/snapshots", async (_req, res) => {
   } catch (err: unknown) {
     if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
       res.json([]);
+    } else {
+      console.error("Error reading snapshots:", err);
+      res.status(500).json({ error: "Failed to read snapshots" });
+    }
+  }
+});
+
+app.get("/api/snapshots/download", async (_req, res) => {
+  try {
+    const raw = await readFile(JSONL_PATH, "utf-8");
+    const lines = raw.trim().split("\n").filter(Boolean);
+    const snapshots = lines.map((line) => JSON.parse(line));
+    const filename = `snapshots-${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/json");
+    res.json(snapshots);
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      res.status(404).json({ error: "No snapshots file found" });
     } else {
       console.error("Error reading snapshots:", err);
       res.status(500).json({ error: "Failed to read snapshots" });
