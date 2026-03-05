@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AUTO_REFRESH_INTERVAL_MS,
   MIN_REQUEST_GAP_MS,
@@ -18,6 +18,7 @@ import { fetchStopMiniMap } from "./stopSearchApi";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import type { StopMiniMapResponse } from "./types";
+import { isMiniMapUrlEnabled } from "./urlFlags";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
 type ReadyMiniMap = Extract<StopMiniMapResponse, { status: "ready" }>;
@@ -28,8 +29,10 @@ function isSupportedMiniMapLayout(layoutVersion: string): layoutVersion is "v2" 
 
 export default function StopPage() {
   const { stopCode } = useParams<{ stopCode: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const normalizedStopCode = stopCode?.trim() ?? "";
+  const miniMapUrlEnabled = isMiniMapUrlEnabled(location.search);
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
   const [stopName, setStopName] = useState("");
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -142,7 +145,7 @@ export default function StopPage() {
   }, [miniMap]);
 
   useEffect(() => {
-    if (!settings.miniMapBeta || !isValidStopCode) {
+    if (!miniMapUrlEnabled || !settings.miniMapBeta || !isValidStopCode) {
       setMiniMapLoading(false);
       setMiniMap(null);
       return;
@@ -206,7 +209,7 @@ export default function StopPage() {
       });
 
     return () => controller.abort();
-  }, [isValidStopCode, normalizedStopCode, settings.miniMapBeta]);
+  }, [isValidStopCode, miniMapUrlEnabled, normalizedStopCode, settings.miniMapBeta]);
 
   const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes]);
   const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(
@@ -287,6 +290,7 @@ export default function StopPage() {
     : "No live arrivals reported for this stop right now.";
   const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
   const shouldShowMiniMap =
+    miniMapUrlEnabled &&
     settings.miniMapBeta &&
     (miniMapLoading || resolvedMiniMap?.status === "ready");
 
@@ -360,6 +364,7 @@ export default function StopPage() {
                 refreshLocked={refreshLocked}
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
+                showMiniMapToggle={miniMapUrlEnabled}
                 settings={settings}
                 tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                 onNavigateToStop={() => setSettingsOpen(false)}
@@ -377,6 +382,7 @@ export default function StopPage() {
                 refreshLocked={refreshLocked}
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
+                showMiniMapToggle={miniMapUrlEnabled}
                 settings={settings}
                 tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                 onNavigateToStop={() => setSettingsOpen(false)}
@@ -422,6 +428,7 @@ export default function StopPage() {
                     refreshLocked={refreshLocked}
                     isRefreshing={isRefreshing}
                     refreshCooldownSeconds={refreshCooldownSeconds}
+                    showMiniMapToggle={miniMapUrlEnabled}
                     settings={settings}
                     tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                     onNavigateToStop={() => setSettingsOpen(false)}
