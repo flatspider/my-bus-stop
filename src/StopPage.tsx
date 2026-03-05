@@ -138,20 +138,52 @@ export default function StopPage() {
 
     const controller = new AbortController();
     setMiniMapLoading(true);
-    setMiniMap(null);
+    setMiniMap((prev) => {
+      if (
+        prev?.status === "ready" &&
+        prev.code === normalizedStopCode &&
+        prev.layoutVersion === "v2"
+      ) {
+        return prev;
+      }
+      return null;
+    });
 
     void fetchStopMiniMap(normalizedStopCode, controller.signal)
       .then((payload) => {
         if (!controller.signal.aborted) {
-          setMiniMap(payload);
+          if (payload.status === "ready") {
+            setMiniMap(payload);
+            return;
+          }
+
+          setMiniMap((prev) => {
+            if (
+              prev?.status === "ready" &&
+              prev.code === normalizedStopCode &&
+              prev.layoutVersion === "v2"
+            ) {
+              return prev;
+            }
+            return payload;
+          });
         }
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          setMiniMap({
-            status: "unavailable",
-            code: normalizedStopCode,
-            reason: "error",
+          setMiniMap((prev) => {
+            if (
+              prev?.status === "ready" &&
+              prev.code === normalizedStopCode &&
+              prev.layoutVersion === "v2"
+            ) {
+              return prev;
+            }
+            return {
+              status: "unavailable",
+              code: normalizedStopCode,
+              reason: "error",
+            };
           });
         }
       })

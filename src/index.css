@@ -134,6 +134,13 @@ body {
   text-align: left;
 }
 
+.stop-search__trigger--mini {
+  min-height: 108px;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0;
+}
+
 .stop-search__chevron {
   color: var(--text-secondary);
   flex-shrink: 0;
@@ -147,6 +154,23 @@ body {
   opacity: 0.8;
 }
 
+.stop-search__trigger--mini .status-dot-wrap,
+.stop-search__trigger--mini .stop-search__chevron {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+}
+
+.stop-search__trigger--mini .status-dot-wrap {
+  padding-left: 2px;
+}
+
+.stop-search__trigger--mini .status-dot__label {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
 .stop-search__title-wrap {
   display: flex;
   flex-direction: column;
@@ -154,20 +178,18 @@ body {
 }
 
 .stop-search__mini-wrap {
-  display: flex;
+  display: block;
   min-width: 0;
-  align-items: center;
-  gap: 10px;
   flex: 1;
 }
 
 .stop-search__mini {
+  display: block;
   position: relative;
-  width: 220px;
-  max-width: min(220px, 60vw);
-  height: 64px;
-  border-radius: 8px;
-  overflow: hidden;
+  width: 100%;
+  height: 108px;
+  border-radius: 10px;
+  overflow: clip;
   flex-shrink: 0;
 }
 
@@ -193,33 +215,54 @@ body {
   border-radius: 999px;
 }
 
-.stop-search__mini-line--a {
-  left: 14%;
-  right: 8%;
-  top: 34px;
-  height: 1.8px;
+.stop-search__mini-line--h-main {
+  left: -4%;
+  right: -2%;
+  top: 50%;
+  height: 2.1px;
 }
 
-.stop-search__mini-line--b {
-  top: 10%;
-  bottom: 14%;
-  left: 30%;
-  width: 1.8px;
+.stop-search__mini-line--v-main {
+  top: -8%;
+  bottom: -8%;
+  left: 29%;
+  width: 2.1px;
+}
+
+.stop-search__mini-line--h-context-1 {
+  left: -2%;
+  right: -2%;
+  top: 18%;
+  height: 1.2px;
+  opacity: 0.45;
+}
+
+.stop-search__mini-line--v-context-1 {
+  top: -8%;
+  bottom: -8%;
+  left: 52%;
+  width: 1.2px;
+  opacity: 0.45;
 }
 
 .stop-search__mini-marker {
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  left: calc(30% - 4px);
-  top: calc(34px - 4px);
+  left: calc(29% - 4px);
+  top: calc(50% - 12px);
   background: var(--minimap-skeleton);
+}
+
+.stop-search__mini-marker--v2 {
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--bg) 35%, transparent);
 }
 
 .stop-search__mini-map {
   opacity: 0;
   transition: opacity 220ms ease-out;
+  z-index: 1;
 }
 
 .stop-search__mini-map.is-ready {
@@ -233,15 +276,6 @@ body {
   display: block;
 }
 
-.stop-search__mini-caption {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
 .mini-map__road {
   fill: none;
   stroke-linecap: round;
@@ -250,12 +284,18 @@ body {
 
 .mini-map__road--primary {
   stroke: var(--minimap-road-primary);
-  stroke-width: calc(2.25px + var(--minimap-stroke-boost));
+  stroke-width: calc(2.4px + var(--minimap-stroke-boost));
 }
 
 .mini-map__road--secondary {
   stroke: var(--minimap-road-secondary);
-  stroke-width: calc(1.5px + var(--minimap-stroke-boost));
+  stroke-width: calc(2px + var(--minimap-stroke-boost));
+}
+
+.mini-map__context {
+  stroke: color-mix(in srgb, var(--minimap-road-secondary) 78%, var(--bg));
+  stroke-width: calc(1.05px + var(--minimap-stroke-boost));
+  opacity: 0.5;
 }
 
 .mini-map__marker {
@@ -264,12 +304,30 @@ body {
 
 .mini-map__label {
   fill: var(--minimap-label);
-  font-size: var(--minimap-label-size);
-  font-weight: 550;
-  letter-spacing: 0.02em;
+  font-size: 8.8px;
+  font-weight: 540;
+  letter-spacing: 0.01em;
   paint-order: stroke;
   stroke: transparent;
   stroke-width: 0;
+}
+
+.mini-map__label--horizontal {
+  text-anchor: middle;
+}
+
+.mini-map__label--vertical {
+  text-anchor: middle;
+}
+
+.mini-map__direction {
+  fill: color-mix(in srgb, var(--minimap-label) 90%, var(--bg));
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--bg) 70%, transparent);
+  stroke-width: 1px;
 }
 
 html.dark .stop-search__mini-line,
@@ -285,6 +343,11 @@ html.dark .mini-map__road--secondary {
   stroke: var(--minimap-road-secondary-dark);
 }
 
+html.dark .mini-map__context {
+  stroke: color-mix(in srgb, var(--minimap-road-secondary-dark) 70%, var(--bg));
+  opacity: 0.52;
+}
+
 html.dark .mini-map__marker {
   fill: var(--minimap-marker-dark);
   filter: drop-shadow(0 0 1px var(--minimap-halo-dark));
@@ -292,11 +355,16 @@ html.dark .mini-map__marker {
 
 html.dark .mini-map__label {
   fill: var(--minimap-label-dark);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
+  font-size: 9.6px;
+  font-weight: 640;
+  letter-spacing: 0.03em;
   stroke: var(--minimap-halo-dark);
   stroke-width: 1.3px;
+}
+
+html.dark .mini-map__direction {
+  fill: var(--minimap-label-dark);
+  stroke: var(--minimap-halo-dark);
 }
 
 @keyframes minimap-fade-in {
@@ -1263,9 +1331,9 @@ html.dark .bus-card__vehicle-dot--fallback {
   }
 
   .stop-search__mini {
-    width: 190px;
-    max-width: 58vw;
-    height: 58px;
+    width: 100%;
+    max-width: none;
+    height: 96px;
   }
 
   .stop-search__dropdown {

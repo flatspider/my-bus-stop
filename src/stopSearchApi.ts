@@ -114,6 +114,7 @@ export async function fetchStopMiniMap(
       svg: maybe.svg,
       generatedAt: maybe.generatedAt,
       source: maybe.source === "cache" ? "cache" : "generated",
+      layoutVersion: "v2",
     }
   }
 

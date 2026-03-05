@@ -283,7 +283,7 @@ export default function StopSearchHeader({
       {!isExpanded ? (
         <button
           type="button"
-          className="stop-search__trigger"
+          className={`stop-search__trigger${showMiniMap ? ' stop-search__trigger--mini' : ''}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
         >
@@ -295,9 +295,11 @@ export default function StopSearchHeader({
                   className={`stop-search__mini-skeleton${miniMapLoading ? ' is-visible' : ''}`}
                   aria-hidden="true"
                 >
-                  <span className="stop-search__mini-line stop-search__mini-line--a" />
-                  <span className="stop-search__mini-line stop-search__mini-line--b" />
-                  <span className="stop-search__mini-marker" />
+                  <span className="stop-search__mini-line stop-search__mini-line--h-main" />
+                  <span className="stop-search__mini-line stop-search__mini-line--v-main" />
+                  <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
+                  <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
+                  <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
                 </span>
                 {miniMap?.status === 'ready' && (
                   <span
@@ -306,11 +308,6 @@ export default function StopSearchHeader({
                     dangerouslySetInnerHTML={{ __html: miniMap.svg }}
                   />
                 )}
-              </span>
-              <span className="stop-search__mini-caption">
-                {showStopTitle && stopName
-                  ? stopName
-                  : 'Search stop'}
               </span>
             </span>
           ) : (
