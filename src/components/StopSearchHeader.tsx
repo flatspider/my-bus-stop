@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { fetchNearbyStops, searchStops } from '../stopSearchApi'
+import { formatStopName } from '../formatStopName'
 import type { StopMiniMapResponse, StopSearchResult } from '../types'
 
 const RECENT_STOPS_KEY = 'buswatch-stop-search-recents'
@@ -66,36 +67,6 @@ function dedupeResults(primary: StopSearchResult[], secondary: StopSearchResult[
     merged.push(item)
   }
   return merged
-}
-
-function formatStopName(raw: string): string {
-  const upperTokens = new Set([
-    'AV', 'ST', 'RD', 'BLVD', 'DR', 'PL', 'LN', 'PKWY',
-    'NB', 'SB', 'EB', 'WB', 'E', 'W', 'N', 'S',
-  ])
-
-  const withDelimiters = raw
-    .replace(/\//g, ' / ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-
-  return withDelimiters
-    .split(' ')
-    .map((token) => {
-      if (!token) return ''
-      if (token === '/' || token === '-' || token === '&') return token
-      if (/^\d+$/.test(token)) return token
-
-      const upper = token.toUpperCase()
-      if (upperTokens.has(upper)) return upper
-
-      return token.charAt(0).toUpperCase() + token.slice(1)
-    })
-    .join(' ')
-    .replace(/\s+\/\s+/g, ' / ')
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 function extractDirectionLabel(raw: string): string | null {
@@ -331,7 +302,7 @@ export default function StopSearchHeader({
               {statusNode}
               {showStopTitle && stopName && (
                 <span className="stop-search__title-wrap" data-tutorial="default-stop">
-                  <span className="stop-name">{stopName}</span>
+                  <span className="stop-name">{formatStopName(stopName)}</span>
                 </span>
               )}
               {showStopTitle && !stopName && (
