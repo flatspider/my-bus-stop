@@ -467,9 +467,34 @@ export default function StopSearchHeader({
               onClick={requestLocationManually}
               disabled={locationState === "requesting"}
             >
-              {locationState === "requesting"
-                ? "Locating..."
-                : "Use my location"}
+              <span className="stop-search__location-cta-icon" aria-hidden="true">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2v4" />
+                  <path d="M12 18v4" />
+                  <path d="M2 12h4" />
+                  <path d="M18 12h4" />
+                  <circle cx="12" cy="12" r="4" />
+                </svg>
+              </span>
+              <span className="stop-search__location-cta-copy">
+                <span className="stop-search__location-cta-label">
+                  {locationState === "requesting"
+                    ? "Locating..."
+                    : "Use my location"}
+                </span>
+                <span className="stop-search__location-cta-meta">
+                  Find the nearest stop automatically
+                </span>
+              </span>
             </button>
           )}
 
