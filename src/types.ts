@@ -20,3 +20,19 @@ export interface StopSearchResult {
   directionConfidence?: "high" | "medium" | "low"
   directionSource?: "trip+cardinal" | "cardinal" | "trip" | "none"
 }
+
+export type MiniMapUnavailableReason = "timeout" | "no_roads" | "low_quality" | "error"
+
+export type StopMiniMapResponse =
+  | {
+    status: "ready"
+    code: string
+    svg: string
+    generatedAt: string
+    source: "cache" | "generated"
+  }
+  | {
+    status: "unavailable"
+    code: string
+    reason: MiniMapUnavailableReason
+  }

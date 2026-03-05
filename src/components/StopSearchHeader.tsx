@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { fetchNearbyStops, searchStops } from '../stopSearchApi'
-import type { StopSearchResult } from '../types'
+import type { StopMiniMapResponse, StopSearchResult } from '../types'
 
 const RECENT_STOPS_KEY = 'buswatch-stop-search-recents'
 const SEARCH_LIMIT = 5
@@ -12,6 +12,9 @@ const MAX_VISIBLE_RESULTS = 5
 interface StopSearchHeaderProps {
   stopName: string
   showStopTitle: boolean
+  showMiniMap: boolean
+  miniMapLoading: boolean
+  miniMap: StopMiniMapResponse | null
   statusNode: ReactNode
   onSelectStop: (code: string) => void
   onExpandedChange?: (isExpanded: boolean) => void
@@ -115,6 +118,9 @@ function displayDirection(item: StopSearchResult): string | null {
 export default function StopSearchHeader({
   stopName,
   showStopTitle,
+  showMiniMap,
+  miniMapLoading,
+  miniMap,
   statusNode,
   onSelectStop,
   onExpandedChange,
@@ -282,20 +288,49 @@ export default function StopSearchHeader({
           aria-label="Search for a bus stop"
         >
           {statusNode}
-          {showStopTitle && stopName && (
-            <span className="stop-search__title-wrap" data-tutorial="default-stop">
-              <span className="stop-name">{stopName}</span>
+          {showMiniMap ? (
+            <span className="stop-search__mini-wrap" data-tutorial="default-stop">
+              <span className="stop-search__mini">
+                <span
+                  className={`stop-search__mini-skeleton${miniMapLoading ? ' is-visible' : ''}`}
+                  aria-hidden="true"
+                >
+                  <span className="stop-search__mini-line stop-search__mini-line--a" />
+                  <span className="stop-search__mini-line stop-search__mini-line--b" />
+                  <span className="stop-search__mini-marker" />
+                </span>
+                {miniMap?.status === 'ready' && (
+                  <span
+                    className="stop-search__mini-map is-ready"
+                    // SVG is generated server-side from fixed geometry and labels.
+                    dangerouslySetInnerHTML={{ __html: miniMap.svg }}
+                  />
+                )}
+              </span>
+              <span className="stop-search__mini-caption">
+                {showStopTitle && stopName
+                  ? stopName
+                  : 'Search stop'}
+              </span>
             </span>
-          )}
-          {showStopTitle && !stopName && (
-            <span className="stop-search__fallback" data-tutorial="default-stop">
-              Search stop
-            </span>
-          )}
-          {!showStopTitle && (
-            <span className="stop-search__fallback" data-tutorial="default-stop">
-              Search stop
-            </span>
+          ) : (
+            <>
+              {showStopTitle && stopName && (
+                <span className="stop-search__title-wrap" data-tutorial="default-stop">
+                  <span className="stop-name">{stopName}</span>
+                </span>
+              )}
+              {showStopTitle && !stopName && (
+                <span className="stop-search__fallback" data-tutorial="default-stop">
+                  Search stop
+                </span>
+              )}
+              {!showStopTitle && (
+                <span className="stop-search__fallback" data-tutorial="default-stop">
+                  Search stop
+                </span>
+              )}
+            </>
           )}
           <svg
             className="stop-search__chevron"

@@ -16,6 +16,20 @@
   --tutorial-accent: #007AFF;
   --tutorial-dim: rgba(0, 0, 0, 0.55);
   --tutorial-close-bg: rgba(142, 142, 147, 0.35);
+  --minimap-road-primary: #3a3a3a;
+  --minimap-road-secondary: #8a8a8a;
+  --minimap-label: #5c5c5c;
+  --minimap-marker: #1f1f1f;
+  --minimap-road-primary-dark: #e6e6e6;
+  --minimap-road-secondary-dark: #b5b5b5;
+  --minimap-label-dark: #f2f2f2;
+  --minimap-marker-dark: #ffffff;
+  --minimap-halo-dark: rgba(0, 0, 0, 0.68);
+  --minimap-label-size: 11px;
+  --minimap-stroke-boost: 0px;
+  --minimap-stroke-boost-dark: 0.3px;
+  --minimap-skeleton: #c3c3c3;
+  --minimap-skeleton-dark: #5b5b5b;
 }
 
 html.dark {
@@ -35,6 +49,7 @@ html.dark {
   --tutorial-accent: #0A84FF;
   --tutorial-dim: rgba(0, 0, 0, 0.7);
   --tutorial-close-bg: rgba(142, 142, 147, 0.45);
+  --minimap-stroke-boost: var(--minimap-stroke-boost-dark);
 }
 
 * {
@@ -136,6 +151,161 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+.stop-search__mini-wrap {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.stop-search__mini {
+  position: relative;
+  width: 220px;
+  max-width: min(220px, 60vw);
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.stop-search__mini-skeleton,
+.stop-search__mini-map {
+  position: absolute;
+  inset: 0;
+}
+
+.stop-search__mini-skeleton {
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.stop-search__mini-skeleton.is-visible {
+  opacity: 1;
+}
+
+.stop-search__mini-line {
+  position: absolute;
+  display: block;
+  background: var(--minimap-skeleton);
+  border-radius: 999px;
+}
+
+.stop-search__mini-line--a {
+  left: 14%;
+  right: 8%;
+  top: 34px;
+  height: 1.8px;
+}
+
+.stop-search__mini-line--b {
+  top: 10%;
+  bottom: 14%;
+  left: 30%;
+  width: 1.8px;
+}
+
+.stop-search__mini-marker {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  left: calc(30% - 4px);
+  top: calc(34px - 4px);
+  background: var(--minimap-skeleton);
+}
+
+.stop-search__mini-map {
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+}
+
+.stop-search__mini-map.is-ready {
+  opacity: 1;
+  animation: minimap-fade-in 220ms ease-out;
+}
+
+.stop-search__mini-map svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.stop-search__mini-caption {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mini-map__road {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mini-map__road--primary {
+  stroke: var(--minimap-road-primary);
+  stroke-width: calc(2.25px + var(--minimap-stroke-boost));
+}
+
+.mini-map__road--secondary {
+  stroke: var(--minimap-road-secondary);
+  stroke-width: calc(1.5px + var(--minimap-stroke-boost));
+}
+
+.mini-map__marker {
+  fill: var(--minimap-marker);
+}
+
+.mini-map__label {
+  fill: var(--minimap-label);
+  font-size: var(--minimap-label-size);
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  paint-order: stroke;
+  stroke: transparent;
+  stroke-width: 0;
+}
+
+html.dark .stop-search__mini-line,
+html.dark .stop-search__mini-marker {
+  background: var(--minimap-skeleton-dark);
+}
+
+html.dark .mini-map__road--primary {
+  stroke: var(--minimap-road-primary-dark);
+}
+
+html.dark .mini-map__road--secondary {
+  stroke: var(--minimap-road-secondary-dark);
+}
+
+html.dark .mini-map__marker {
+  fill: var(--minimap-marker-dark);
+  filter: drop-shadow(0 0 1px var(--minimap-halo-dark));
+}
+
+html.dark .mini-map__label {
+  fill: var(--minimap-label-dark);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  stroke: var(--minimap-halo-dark);
+  stroke-width: 1.3px;
+}
+
+@keyframes minimap-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .stop-search__title-wrap .stop-name {
@@ -947,6 +1117,12 @@ html.dark .bus-card__vehicle-dot--fallback {
   margin-top: 4px;
 }
 
+.settings-panel__attribution {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── QR Scanner Overlay ── */
 .qr-scanner {
   position: fixed;
@@ -1040,6 +1216,15 @@ html.dark .bus-card__vehicle-dot--fallback {
     animation: none;
   }
 
+  .stop-search__mini-map.is-ready {
+    animation: none;
+    transition: none;
+  }
+
+  .stop-search__mini-skeleton {
+    transition: none;
+  }
+
   .settings-close-hint {
     animation: none;
   }
@@ -1075,6 +1260,12 @@ html.dark .bus-card__vehicle-dot--fallback {
 
   .stop-search {
     max-width: none;
+  }
+
+  .stop-search__mini {
+    width: 190px;
+    max-width: 58vw;
+    height: 58px;
   }
 
   .stop-search__dropdown {

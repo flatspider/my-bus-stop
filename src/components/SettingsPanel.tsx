@@ -205,6 +205,11 @@ export default function SettingsPanel({
             onChange={(v) => onUpdateSetting("showStopTitle", v)}
           />
           <ToggleRow
+            label="Mini map (beta)"
+            checked={settings.miniMapBeta}
+            onChange={(v) => onUpdateSetting("miniMapBeta", v)}
+          />
+          <ToggleRow
             label="Dark mode"
             checked={settings.darkMode}
             onChange={(v) => onUpdateSetting("darkMode", v)}
@@ -289,6 +294,9 @@ export default function SettingsPanel({
           {scanError && (
             <p className="settings-panel__scan-error">{scanError}</p>
           )}
+          <p className="settings-panel__attribution">
+            Map data &copy; OpenStreetMap contributors
+          </p>
         </div>
       </div>
 
