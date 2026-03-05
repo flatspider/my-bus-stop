@@ -158,16 +158,17 @@ body {
 }
 
 .stop-search__chevron {
-  color: var(--text-secondary);
+  color: color-mix(in srgb, var(--text) 55%, var(--text-secondary) 45%);
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.82;
   position: relative;
   top: -1px;
+  right: -3px;
   transition: opacity 0.15s;
 }
 
 .stop-search__trigger:active .stop-search__chevron {
-  opacity: 0.8;
+  opacity: 0.96;
 }
 
 .stop-search__mini-layout {
@@ -260,7 +261,7 @@ body {
   line-height: 1;
   flex-shrink: 0;
   margin-right: 0.12em;
-  transform: translateY(-0.035em);
+  transform: translateY(-0.03em);
 }
 
 .stop-search__mini-wrap {
