@@ -314,12 +314,10 @@ export default function StopSearchHeader({
           className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}${!showMiniMap && !showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
+          data-tutorial="default-stop"
         >
           {showMiniMap ? (
-            <span
-              className="stop-search__mini-layout"
-              data-tutorial="default-stop"
-            >
+            <span className="stop-search__mini-layout">
               <span className="stop-search__mini-wrap">
                 <span className="stop-search__mini">
                   <span
@@ -367,10 +365,7 @@ export default function StopSearchHeader({
             <>
               {showStopTitle && statusNode}
               {showStopTitle && stopName && (
-                <span
-                  className="stop-search__title-wrap"
-                  data-tutorial="default-stop"
-                >
+                <span className="stop-search__title-wrap">
                   <span className="stop-search__title-block">
                     <span className="stop-search__title-accent" aria-hidden="true" />
                     {renderStopTitle(stopName, "stop-name")}
@@ -378,10 +373,7 @@ export default function StopSearchHeader({
                 </span>
               )}
               {showStopTitle && !stopName && (
-                <span
-                  className="stop-search__fallback"
-                  data-tutorial="default-stop"
-                >
+                <span className="stop-search__fallback">
                   <span className="stop-search__title-block">
                     <span className="stop-search__title-accent" aria-hidden="true" />
                     Search stop
@@ -389,7 +381,7 @@ export default function StopSearchHeader({
                 </span>
               )}
               {!showStopTitle && (
-                <span className="stop-search__icon-only" data-tutorial="default-stop">
+                <span className="stop-search__icon-only">
                   {statusNode}
                   <svg
                     className="stop-search__icon"
