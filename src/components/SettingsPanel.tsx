@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { stopCodeExists } from "../stopSearchApi";
 import type { Settings } from "../useSettings";
-import { isMiniMapUrlEnabled } from "../urlFlags";
 
 const QrScanner = lazy(() => import("./QrScanner"));
 
@@ -13,7 +12,6 @@ interface SettingsPanelProps {
   isRefreshing: boolean;
   refreshCooldownSeconds: number;
   settings: Settings;
-  showMiniMapToggle?: boolean;
   tutorialHighlightsStopInput?: boolean;
   inline?: boolean;
   onNavigateToStop?: () => void;
@@ -51,7 +49,6 @@ export default function SettingsPanel({
   isRefreshing,
   refreshCooldownSeconds,
   settings,
-  showMiniMapToggle,
   tutorialHighlightsStopInput = false,
   inline = false,
   onNavigateToStop,
@@ -67,8 +64,6 @@ export default function SettingsPanel({
   const shakeResetTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const shouldShowMiniMapToggle =
-    showMiniMapToggle ?? isMiniMapUrlEnabled(location.search);
 
   useEffect(() => {
     const coarsePointerMedia = window.matchMedia("(pointer: coarse)");
@@ -209,13 +204,6 @@ export default function SettingsPanel({
             checked={settings.showStopTitle}
             onChange={(v) => onUpdateSetting("showStopTitle", v)}
           />
-          {shouldShowMiniMapToggle && (
-            <ToggleRow
-              label="Mini map (beta)"
-              checked={settings.miniMapBeta}
-              onChange={(v) => onUpdateSetting("miniMapBeta", v)}
-            />
-          )}
           <ToggleRow
             label="Dark mode"
             checked={settings.darkMode}

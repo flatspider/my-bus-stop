@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { fetchNearbyStops, searchStops } from "../stopSearchApi";
 import { formatStopName } from "../formatStopName";
-import type { StopMiniMapResponse, StopSearchResult } from "../types";
+import type { StopSearchResult } from "../types";
 
 const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
 const SEARCH_LIMIT = 5;
@@ -13,9 +13,6 @@ const MAX_VISIBLE_RESULTS = 5;
 interface StopSearchHeaderProps {
   stopName: string;
   showStopTitle: boolean;
-  showMiniMap: boolean;
-  miniMapLoading: boolean;
-  miniMap: StopMiniMapResponse | null;
   statusNode: ReactNode;
   onSelectStop: (code: string) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
@@ -126,9 +123,6 @@ function renderStopTitle(raw: string, className: string): ReactNode {
 export default function StopSearchHeader({
   stopName,
   showStopTitle,
-  showMiniMap,
-  miniMapLoading,
-  miniMap,
   statusNode,
   onSelectStop,
   onExpandedChange,
@@ -305,104 +299,57 @@ export default function StopSearchHeader({
 
   return (
     <div
-      className={`stop-search${!showMiniMap && !showStopTitle ? " stop-search--icon-only" : ""}`}
+      className={`stop-search${!showStopTitle ? " stop-search--icon-only" : ""}`}
       ref={wrapperRef}
     >
       {!isExpanded ? (
         <button
           type="button"
-          className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}${!showMiniMap && !showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
+          className={`stop-search__trigger${!showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
           data-tutorial="default-stop"
         >
-          {showMiniMap ? (
-            <span className="stop-search__mini-layout">
-              <span className="stop-search__mini-wrap">
-                <span className="stop-search__mini">
-                  <span
-                    className={`stop-search__mini-skeleton${miniMapLoading ? " is-visible" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <span className="stop-search__mini-line stop-search__mini-line--h-main" />
-                    <span className="stop-search__mini-line stop-search__mini-line--v-main" />
-                    <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
-                    <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
-                    <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
-                  </span>
-                  {miniMap?.status === "ready" && (
-                    <span
-                      className="stop-search__mini-map is-ready"
-                      // SVG is generated server-side from fixed geometry and labels.
-                      dangerouslySetInnerHTML={{ __html: miniMap.svg }}
-                    />
-                  )}
+          <>
+            {showStopTitle && statusNode}
+            {showStopTitle && stopName && (
+              <span className="stop-search__title-wrap">
+                <span className="stop-search__title-block">
+                  <span className="stop-search__title-accent" aria-hidden="true" />
+                  {renderStopTitle(stopName, "stop-name")}
                 </span>
               </span>
-              <span className="stop-search__mini-card">
-                <span className="stop-search__mini-status">{statusNode}</span>
-                {showStopTitle && stopName && (
-                  <span className="stop-search__mini-title-wrap">
-                    {renderStopTitle(stopName, "stop-search__mini-title")}
-                  </span>
-                )}
-                {showStopTitle && !stopName && (
-                  <span className="stop-search__mini-fallback">
-                    Search stop
-                  </span>
-                )}
-                {!showStopTitle && (
-                  <span className="stop-search__mini-fallback">
-                    Search stop
-                  </span>
-                )}
-                <span className="stop-search__mini-caption">
-                  Tap to change stop
+            )}
+            {showStopTitle && !stopName && (
+              <span className="stop-search__fallback">
+                <span className="stop-search__title-block">
+                  <span className="stop-search__title-accent" aria-hidden="true" />
+                  Search stop
                 </span>
               </span>
-            </span>
-          ) : (
-            <>
-              {showStopTitle && statusNode}
-              {showStopTitle && stopName && (
-                <span className="stop-search__title-wrap">
-                  <span className="stop-search__title-block">
-                    <span className="stop-search__title-accent" aria-hidden="true" />
-                    {renderStopTitle(stopName, "stop-name")}
-                  </span>
-                </span>
-              )}
-              {showStopTitle && !stopName && (
-                <span className="stop-search__fallback">
-                  <span className="stop-search__title-block">
-                    <span className="stop-search__title-accent" aria-hidden="true" />
-                    Search stop
-                  </span>
-                </span>
-              )}
-              {!showStopTitle && (
-                <span className="stop-search__icon-only">
-                  {statusNode}
-                  <svg
-                    className="stop-search__icon"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
-                </span>
-              )}
-            </>
-          )}
-          {showStopTitle && !showMiniMap && (
+            )}
+            {!showStopTitle && (
+              <span className="stop-search__icon-only">
+                {statusNode}
+                <svg
+                  className="stop-search__icon"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </span>
+            )}
+          </>
+          {showStopTitle && (
             <svg
               className="stop-search__chevron"
               width="8"

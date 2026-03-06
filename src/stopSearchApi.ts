@@ -1,4 +1,4 @@
-import type { MiniMapUnavailableReason, StopMiniMapResponse, StopSearchResult } from './types'
+import type { StopSearchResult } from './types'
 
 interface RequestOptions {
   signal?: AbortSignal
@@ -89,51 +89,4 @@ export async function stopCodeExists(code: string, signal?: AbortSignal): Promis
   if (!data || typeof data !== "object") return false
   const maybe = data as { exists?: unknown }
   return maybe.exists === true
-}
-
-export async function fetchStopMiniMap(
-  code: string,
-  signal?: AbortSignal,
-): Promise<StopMiniMapResponse> {
-  const query = buildQuery({ code })
-  const res = await fetch(`/api/stops/minimap?${query}`, { signal })
-  if (!res.ok) {
-    throw new Error(`Stop mini-map request failed: ${res.status}`)
-  }
-
-  const data = await res.json() as unknown
-  if (!data || typeof data !== "object") {
-    return { status: "unavailable", code, reason: "error" }
-  }
-
-  const maybe = data as Partial<StopMiniMapResponse>
-  if (maybe.status === "ready" && typeof maybe.svg === "string" && typeof maybe.generatedAt === "string") {
-    const layoutVersion = maybe.layoutVersion === "v2" || maybe.layoutVersion === "v3"
-      ? maybe.layoutVersion
-      : "v3"
-
-    return {
-      status: "ready",
-      code: typeof maybe.code === "string" ? maybe.code : code,
-      svg: maybe.svg,
-      generatedAt: maybe.generatedAt,
-      source: maybe.source === "cache" ? "cache" : "generated",
-      layoutVersion,
-    }
-  }
-
-  if (maybe.status === "unavailable" && typeof maybe.reason === "string") {
-    const validReasons = new Set<MiniMapUnavailableReason>(["timeout", "no_roads", "low_quality", "error"])
-    const reason: MiniMapUnavailableReason = validReasons.has(maybe.reason as MiniMapUnavailableReason)
-      ? (maybe.reason as MiniMapUnavailableReason)
-      : "error"
-
-    return {
-      status: "unavailable",
-      code: typeof maybe.code === "string" ? maybe.code : code,
-      reason,
-    }
-  }
-
-  return { status: "unavailable", code, reason: "error" }
 }
