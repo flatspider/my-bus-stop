@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { BusArrival } from "../types";
 
 const ROUTE_COLORS: Record<string, string> = {
@@ -70,6 +71,14 @@ interface BusCardProps {
   hideVehicleStatusDot?: boolean;
 }
 
+function compactStopsAwayLabel(stopsAway: string): string {
+  const match = stopsAway.trim().match(/^(\d+)\s+stop(s)?\s+away$/i);
+  if (!match) return stopsAway;
+  const count = match[1];
+  const pluralSuffix = match[2] ? "s" : "";
+  return `~${count} stop${pluralSuffix}`;
+}
+
 export default function BusCard({
   arrival,
   route,
@@ -78,6 +87,11 @@ export default function BusCard({
   showStopsAway = false,
   hideVehicleStatusDot = false,
 }: BusCardProps) {
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const routeRef = useRef<HTMLSpanElement | null>(null);
+  const minutesRef = useRef<HTMLSpanElement | null>(null);
+  const fullStopsMeasureRef = useRef<HTMLSpanElement | null>(null);
+  const [useCompactStopsAway, setUseCompactStopsAway] = useState(false);
   const darkMode =
     typeof document !== "undefined" &&
     document.documentElement.classList.contains("dark");
@@ -94,6 +108,7 @@ export default function BusCard({
     .replace(/\s*minutes?/, "")
     .replace(/approaching/i, "now");
   const showNowLabel = rawMinutes === "now";
+  const compactStopsAway = compactStopsAwayLabel(arrival.stopsAway);
   const isApproaching =
     arrival.minutesNum === 0 || /approaching/i.test(arrival.minutes);
   const hasLiveVehicle = arrival.vehicleId.trim().length > 0;
@@ -111,23 +126,72 @@ export default function BusCard({
       ? "Live vehicle"
       : "Schedule fallback";
 
+  useLayoutEffect(() => {
+    if (!showStopsAway || !arrival.stopsAway) {
+      setUseCompactStopsAway(false);
+      return;
+    }
+
+    const measureOverflow = () => {
+      const row = rowRef.current;
+      const minutes = minutesRef.current;
+      const fullStopsMeasure = fullStopsMeasureRef.current;
+      if (!row || !minutes || !fullStopsMeasure) return;
+
+      const routeWidth = showRouteName ? (routeRef.current?.scrollWidth ?? 0) : 0;
+      const minutesWidth = minutes.scrollWidth;
+      const stopsWidth = fullStopsMeasure.scrollWidth;
+      const gap = Number.parseFloat(getComputedStyle(row).columnGap || getComputedStyle(row).gap || "0") || 0;
+      const visibleItems = 1 + (showRouteName ? 1 : 0) + 1;
+      const totalNeededWidth = routeWidth + minutesWidth + stopsWidth + gap * (visibleItems - 1);
+
+      setUseCompactStopsAway(totalNeededWidth > row.clientWidth);
+    };
+
+    measureOverflow();
+
+    const row = rowRef.current;
+    if (!row || typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureOverflow);
+      return () => window.removeEventListener("resize", measureOverflow);
+    }
+
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [arrival.stopsAway, showRouteName, showStopsAway]);
+
+  const stopsAwayLabel = useCompactStopsAway ? compactStopsAway : arrival.stopsAway;
+
   return (
     <div className="bus-card" onClick={handleCardClick}>
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
-      <div className="bus-card__row">
+      <div className="bus-card__row" ref={rowRef}>
         {showRouteName && (
-          <span className="bus-card__route" style={{ color }}>
+          <span className="bus-card__route" style={{ color }} ref={routeRef}>
             {routeName}
           </span>
         )}
-        <span className={`bus-card__minutes${showNowLabel ? " bus-card__minutes--now" : ""}`}>
+        <span
+          className={`bus-card__minutes${showNowLabel ? " bus-card__minutes--now" : ""}`}
+          ref={minutesRef}
+        >
           <span className="bus-card__minutes-value">{rawMinutes}</span>
           {!showNowLabel && showMinSuffix && (
             <span className="bus-card__minutes-suffix">min</span>
           )}
         </span>
         {showStopsAway && arrival.stopsAway && (
-          <span className="bus-card__stops-away">{arrival.stopsAway}</span>
+          <>
+            <span className="bus-card__stops-away">{stopsAwayLabel}</span>
+            <span
+              aria-hidden="true"
+              className="bus-card__stops-away bus-card__stops-away--measure"
+              ref={fullStopsMeasureRef}
+            >
+              {arrival.stopsAway}
+            </span>
+          </>
         )}
         {!hideVehicleStatusDot && !showStopsAway && (
           <span

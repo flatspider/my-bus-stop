@@ -1000,6 +1000,12 @@ html.dark .bus-card--settings {
   white-space: nowrap;
 }
 
+.bus-card__stops-away--measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 html.dark .bus-card__stops-away {
   color: #c9c9c9;
   font-weight: 500;
