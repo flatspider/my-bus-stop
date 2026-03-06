@@ -158,8 +158,20 @@ export default function Tutorial({
       let previousRect: DOMRect | null = null;
       let stableFrames = 0;
 
+      let hasScrolled = false;
+
       const pollUntilStable = () => {
         if (cancelled) return;
+
+        // Scroll target into view once so it's visible in browsers with
+        // reduced viewport height (e.g. Twitter's in-app browser).
+        if (!hasScrolled) {
+          const targetEl = document.querySelector(STEPS[step].target);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: "instant", block: "center" });
+            hasScrolled = true;
+          }
+        }
 
         const nextRect = measureTarget(step);
         const nextSecondaryRect = measureSecondaryTarget(step);
