@@ -192,6 +192,8 @@ async function pollOnce() {
   if (!config.apiKey) return;
 
   try {
+    const snapshotTimestamp = new Date().toISOString()
+
     // Fetch SIRI for all 3 corridor stops in parallel
     const [siriBefore, siriPrimary, siriAfter] = await Promise.all([
       fetchSiri(CORRIDOR.before),
@@ -208,10 +210,11 @@ async function pollOnce() {
     ]);
 
     // Write legacy single-stop snapshot (keeps existing analysis working)
-    await compareAndLog(CORRIDOR.primary, siriPrimary, primaryArrivals, tripSummaries, vehiclePositions);
+    await compareAndLog(snapshotTimestamp, CORRIDOR.primary, siriPrimary, primaryArrivals, tripSummaries, vehiclePositions);
 
     // Write new corridor snapshot
     await logCorridorSnapshot(
+      snapshotTimestamp,
       CORRIDOR,
       [
         { stopCode: CORRIDOR.before, role: "before", data: siriBefore },

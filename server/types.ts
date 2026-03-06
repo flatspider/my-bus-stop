@@ -116,6 +116,7 @@ export interface SnapshotVehicle {
   gtfsDelay: number | null
   gtfsStatus: string | null
   gtfsArrivalTime: number | null
+  isFallback: boolean | null
   flag: "OK" | "NO_VP" | "STALE_VP" | "FAR" | "NO_GTFS_RT"
   tripId: string | null
   vpLatitude: number | null

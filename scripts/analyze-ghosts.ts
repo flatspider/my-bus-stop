@@ -94,7 +94,7 @@ function findMisleadingMoments(snapshots: SnapshotEntry[]): MisleadingMoment[] {
           gtfsEtaMin: gtfsEta,
           siriEtaMin: v.siriEtaMinutes,
           discrepancyMin: discrepancy,
-          isFallback: v.gtfsDelay === 0, // delay=0 is a strong fallback signal
+          isFallback: v.isFallback ?? false,
         })
       }
     }

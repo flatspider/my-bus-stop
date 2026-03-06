@@ -19,13 +19,13 @@ const STOP_COORDINATES: Record<string, { latitude: number; longitude: number }> 
 }
 
 export async function compareAndLog(
+  timestamp: string,
   stopCode: string,
   siriData: StopData,
   stopArrivals: GtfsRtArrival[],
   tripSummaries: GtfsRtTripSummary[],
   vehiclePositions: Map<string, VehiclePositionData>
 ): Promise<void> {
-  const timestamp = new Date().toISOString()
   const nowEpoch = Math.floor(Date.now() / 1000)
 
   // --- Trip-Level Fallback Analysis ---
@@ -63,12 +63,10 @@ export async function compareAndLog(
 
   // --- Stop-Level Comparison ---
   const gtfsByVehicle = new Map<string, GtfsRtArrival>()
-  const gtfsByRoute = new Map<string, GtfsRtArrival[]>()
+  const tripSummaryMap = new Map(tripSummaries.map((t) => [t.tripId, t]))
   for (const a of stopArrivals) {
-    if (a.vehicleId) gtfsByVehicle.set(a.vehicleId, a)
-    const short = extractRouteName(a.routeId)
-    if (!gtfsByRoute.has(short)) gtfsByRoute.set(short, [])
-    gtfsByRoute.get(short)!.push(a)
+    const normalizedId = a.vehicleId ? normalizeVehicleId(a.vehicleId) : ""
+    if (normalizedId) gtfsByVehicle.set(normalizedId, a)
   }
 
   const tableRows: string[] = []
@@ -78,14 +76,10 @@ export async function compareAndLog(
       const normalizedId = arrival.vehicleId ? normalizeVehicleId(arrival.vehicleId) : ""
       const etaMinutes = arrival.minutesNum === 999 ? null : arrival.minutesNum
 
-      // Try matching by vehicle ID first, then by route
-      let gtfsMatch = arrival.vehicleId ? gtfsByVehicle.get(arrival.vehicleId) : undefined
-      if (!gtfsMatch) {
-        const routeArrivals = gtfsByRoute.get(siriRoute.route)
-        if (routeArrivals?.length) {
-          gtfsMatch = routeArrivals.shift()
-        }
-      }
+      // Only trust an explicit vehicle ID match. Route-order matching produced
+      // duplicate trip assignments and polluted the downstream analysis.
+      const gtfsMatch = normalizedId ? gtfsByVehicle.get(normalizedId) : undefined
+      const tripSummary = gtfsMatch?.tripId ? tripSummaryMap.get(gtfsMatch.tripId) : undefined
 
       // VP-based flag logic
       const vpData = normalizedId ? vehiclePositions.get(normalizedId) : undefined
@@ -114,6 +108,7 @@ export async function compareAndLog(
         gtfsDelay: gtfsMatch?.arrivalDelay ?? null,
         gtfsStatus: gtfsMatch?.scheduleRelationship ?? null,
         gtfsArrivalTime: gtfsMatch?.arrivalTime ?? null,
+        isFallback: tripSummary?.isFallbackSuspected ?? null,
         flag,
         tripId: gtfsMatch?.tripId ?? null,
         vpLatitude: vpData?.latitude ?? null,
@@ -137,7 +132,6 @@ export async function compareAndLog(
 
   const gtfsOnlyTrips: GtfsOnlyTrip[] = []
   const gtfsOnlyLines: string[] = []
-  const tripSummaryMap = new Map(tripSummaries.map((t) => [t.tripId, t]))
 
   for (const arrival of stopArrivals) {
     const normalizedId = arrival.vehicleId ? normalizeVehicleId(arrival.vehicleId) : ""
@@ -212,14 +206,13 @@ Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-tim
 }
 
 export async function logCorridorSnapshot(
+  timestamp: string,
   corridorStops: { before: string; primary: string; after: string },
   siriResults: { stopCode: string; role: "before" | "primary" | "after"; data: StopData }[],
   primaryArrivals: GtfsRtArrival[],
   tripSummaries: GtfsRtTripSummary[],
   vehiclePositions: Map<string, VehiclePositionData>,
 ): Promise<void> {
-  const timestamp = new Date().toISOString()
-
   const siriStops: CorridorStopSiri[] = siriResults.map((s) => ({
     stopCode: s.stopCode,
     role: s.role,
