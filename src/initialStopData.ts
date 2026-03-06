@@ -22,3 +22,11 @@ export function readInitialStopData(): InitialStopData | null {
   if (typeof maybeWindow.window === "undefined") return null;
   return maybeWindow.window.__BUSWATCH_INITIAL_DATA__ ?? null;
 }
+
+export function hasSsrBootstrap(): boolean {
+  const maybeWindow = globalThis as typeof globalThis & {
+    window?: Window;
+  };
+
+  return Boolean(maybeWindow.window && "__BUSWATCH_INITIAL_DATA__" in maybeWindow.window);
+}

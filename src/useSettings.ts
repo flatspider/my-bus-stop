@@ -19,16 +19,28 @@ const DEFAULTS: Settings = {
   darkMode: false,
 }
 
+let cachedSettingsRaw: string | null | undefined
+let cachedSettingsSnapshot = DEFAULTS
+
 function loadSettings(): Settings {
   if (typeof window === "undefined") return DEFAULTS
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) }
+    if (raw === cachedSettingsRaw) return cachedSettingsSnapshot
+
+    cachedSettingsRaw = raw
+    if (raw) {
+      cachedSettingsSnapshot = { ...DEFAULTS, ...JSON.parse(raw) }
+      return cachedSettingsSnapshot
+    }
   } catch {
     // corrupt data — fall through to defaults
   }
-  return DEFAULTS
+
+  cachedSettingsRaw = null
+  cachedSettingsSnapshot = DEFAULTS
+  return cachedSettingsSnapshot
 }
 
 function subscribe(onStoreChange: () => void): () => void {
@@ -58,7 +70,10 @@ export function useSettings() {
   function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
     if (typeof window === "undefined") return
     const nextSettings = { ...settings, [key]: value }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSettings))
+    const raw = JSON.stringify(nextSettings)
+    cachedSettingsRaw = raw
+    cachedSettingsSnapshot = nextSettings
+    localStorage.setItem(STORAGE_KEY, raw)
     window.dispatchEvent(new Event(SETTINGS_EVENT))
   }
 

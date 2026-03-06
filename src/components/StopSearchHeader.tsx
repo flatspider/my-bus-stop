@@ -7,6 +7,8 @@ import type { StopSearchResult } from "../types";
 
 const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
 const RECENTS_EVENT = "buswatch-stop-search-recents-change";
+let cachedRecentsRaw: string | null | undefined;
+let cachedRecentsSnapshot: StopSearchResult[] = [];
 const SEARCH_LIMIT = 5;
 const NEARBY_LIMIT = 3;
 const MAX_VISIBLE_RESULTS = 5;
@@ -36,25 +38,42 @@ function loadRecents(): StopSearchResult[] {
 
   try {
     const raw = localStorage.getItem(RECENT_STOPS_KEY);
-    if (!raw) return [];
+    if (raw === cachedRecentsRaw) return cachedRecentsSnapshot;
+    if (!raw) {
+      cachedRecentsRaw = null;
+      cachedRecentsSnapshot = [];
+      return cachedRecentsSnapshot;
+    }
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      cachedRecentsRaw = raw;
+      cachedRecentsSnapshot = [];
+      return cachedRecentsSnapshot;
+    }
 
-    return parsed
+    cachedRecentsRaw = raw;
+    cachedRecentsSnapshot = parsed
       .filter((item): item is StopSearchResult => {
         if (!item || typeof item !== "object") return false;
         const maybe = item as Partial<StopSearchResult>;
         return typeof maybe.code === "string" && typeof maybe.name === "string";
       })
       .slice(0, 3);
+    return cachedRecentsSnapshot;
   } catch {
-    return [];
+    cachedRecentsRaw = null;
+    cachedRecentsSnapshot = [];
+    return cachedRecentsSnapshot;
   }
 }
 
 function saveRecents(recents: StopSearchResult[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)));
+  const nextRecents = recents.slice(0, 3);
+  const raw = JSON.stringify(nextRecents);
+  cachedRecentsRaw = raw;
+  cachedRecentsSnapshot = nextRecents;
+  localStorage.setItem(RECENT_STOPS_KEY, raw);
   window.dispatchEvent(new Event(RECENTS_EVENT));
 }
 

@@ -1,10 +1,12 @@
 import { StrictMode } from 'react'
-import { hydrateRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
-import { readInitialStopData } from './initialStopData'
+import { hasSsrBootstrap, readInitialStopData } from './initialStopData'
 
+const rootElement = document.getElementById('root')!
 const initialStopData = readInitialStopData()
+const shouldHydrate = hasSsrBootstrap() && rootElement.hasChildNodes()
 
 function loadAnalytics() {
   if (document.querySelector('script[data-goatcounter]')) return
@@ -16,11 +18,17 @@ function loadAnalytics() {
   document.body.appendChild(script)
 }
 
-hydrateRoot(document.getElementById('root')!,
+const app = (
   <StrictMode>
     <App initialStopData={initialStopData} />
-  </StrictMode>,
+  </StrictMode>
 )
+
+if (shouldHydrate) {
+  hydrateRoot(rootElement, app)
+} else {
+  createRoot(rootElement).render(app)
+}
 
 if (typeof window !== 'undefined') {
   const run = () => window.setTimeout(loadAnalytics, 1200)
