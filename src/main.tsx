@@ -1,17 +1,32 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { hydrateRoot } from 'react-dom/client'
 import './index.css'
-import StopPage from './StopPage.tsx'
-import { DEFAULT_STOP_CODE } from './stopConfig'
+import App from './App'
+import { readInitialStopData } from './initialStopData'
 
-createRoot(document.getElementById('root')!).render(
+const initialStopData = readInitialStopData()
+
+function loadAnalytics() {
+  if (document.querySelector('script[data-goatcounter]')) return
+
+  const script = document.createElement('script')
+  script.dataset.goatcounter = 'https://bauhausbus.goatcounter.com/count'
+  script.async = true
+  script.src = '//gc.zgo.at/count.js'
+  document.body.appendChild(script)
+}
+
+hydrateRoot(document.getElementById('root')!,
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />} />
-        <Route path="/stop/:stopCode" element={<StopPage />} />
-      </Routes>
-    </BrowserRouter>
+    <App initialStopData={initialStopData} />
   </StrictMode>,
 )
+
+if (typeof window !== 'undefined') {
+  const run = () => window.setTimeout(loadAnalytics, 1200)
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(() => run())
+  } else {
+    run()
+  }
+}

@@ -17,30 +17,38 @@ import { SETTINGS_CLOSE_HINT_DELAY_MS } from "./settingsHints";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import { shouldForceLeadCardNow } from "./urlFlags";
+import type { InitialStopData } from "./initialStopData";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
 
-export default function StopPage() {
+interface StopPageProps {
+  initialData?: InitialStopData | null;
+}
+
+export default function StopPage({ initialData = null }: StopPageProps) {
   const { stopCode } = useParams<{ stopCode: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const normalizedStopCode = stopCode?.trim() ?? "";
   const forceLeadCardNow = shouldForceLeadCardNow(location.search);
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
-  const [stopName, setStopName] = useState("");
-  const [routes, setRoutes] = useState<BusRoute[]>([]);
-  const [loading, setLoading] = useState(true);
+  const matchedInitialData =
+    initialData?.stopCode === normalizedStopCode ? initialData : null;
+  const [stopName, setStopName] = useState(() => matchedInitialData?.stopName ?? "");
+  const [routes, setRoutes] = useState<BusRoute[]>(() => matchedInitialData?.routes ?? []);
+  const [loading, setLoading] = useState(() => matchedInitialData === null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(0);
+  const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(() =>
+    matchedInitialData ? matchedInitialData.fetchedAt + MIN_REQUEST_GAP_MS : 0,
+  );
   const [nowMs, setNowMs] = useState(Date.now());
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetchAtMs, setLastFetchAtMs] = useState(0);
+  const [error, setError] = useState<string | null>(() => matchedInitialData?.error ?? null);
+  const [lastFetchAtMs, setLastFetchAtMs] = useState(() => matchedInitialData?.fetchedAt ?? 0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showCloseHint, setShowCloseHint] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(
-    () => !localStorage.getItem("tutorialComplete"),
-  );
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
@@ -48,15 +56,24 @@ export default function StopPage() {
     stopCode: string;
     promise: Promise<void>;
   } | null>(null);
+  const isFirstRouteRenderRef = useRef(true);
   const { settings, updateSetting } = useSettings();
+
+  if (matchedInitialData) {
+    lastRequestAtByStopRef.current[normalizedStopCode] = matchedInitialData.fetchedAt;
+  }
 
   useEffect(() => {
     activeStopCodeRef.current = normalizedStopCode;
+    if (isFirstRouteRenderRef.current) {
+      isFirstRouteRenderRef.current = false;
+      return;
+    }
     setLoading(true);
     setError(null);
   }, [normalizedStopCode]);
 
-  const fetchBusData = useCallback(async () => {
+  const fetchBusData = useCallback(async (options?: { force?: boolean }) => {
     if (!isValidStopCode) return;
 
     const inFlight = inFlightRequestRef.current;
@@ -67,7 +84,7 @@ export default function StopPage() {
     const now = Date.now();
     const lastRequestAt =
       lastRequestAtByStopRef.current[normalizedStopCode] ?? 0;
-    if (now - lastRequestAt < MIN_REQUEST_GAP_MS) {
+    if (!options?.force && now - lastRequestAt < MIN_REQUEST_GAP_MS) {
       return;
     }
 
@@ -120,13 +137,20 @@ export default function StopPage() {
   }, []);
 
   useEffect(() => {
-    void fetchBusData();
+    setIsHydrated(true);
+    setShowTutorial(!localStorage.getItem("tutorialComplete"));
+  }, []);
+
+  useEffect(() => {
+    if (!matchedInitialData) {
+      void fetchBusData();
+    }
     const interval = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void fetchBusData();
     }, AUTO_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [fetchBusData]);
+  }, [fetchBusData, matchedInitialData]);
 
   const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes]);
   const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(
@@ -194,7 +218,7 @@ export default function StopPage() {
   function handleStopSelect(nextStopCode: string) {
     const targetPath = `/stop/${nextStopCode}`;
     if (normalizedStopCode === nextStopCode) {
-      void fetchBusData();
+      void fetchBusData({ force: true });
     } else {
       navigate(targetPath);
     }
@@ -270,7 +294,7 @@ export default function StopPage() {
             {showSettingsPanel && (
               <SettingsPanel
                 inline
-                onRefresh={() => void fetchBusData()}
+                onRefresh={() => void fetchBusData({ force: true })}
                 refreshLocked={refreshLocked}
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
@@ -287,7 +311,7 @@ export default function StopPage() {
             {showSettingsPanel && (
               <SettingsPanel
                 inline
-                onRefresh={() => void fetchBusData()}
+                onRefresh={() => void fetchBusData({ force: true })}
                 refreshLocked={refreshLocked}
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
@@ -332,7 +356,7 @@ export default function StopPage() {
                 <>
                   <SettingsPanel
                     inline
-                    onRefresh={() => void fetchBusData()}
+                    onRefresh={() => void fetchBusData({ force: true })}
                     refreshLocked={refreshLocked}
                     isRefreshing={isRefreshing}
                     refreshCooldownSeconds={refreshCooldownSeconds}
@@ -357,7 +381,7 @@ export default function StopPage() {
         )}
       </div>
 
-      {showTutorial && !loading && arrivalCards.length > 0 && (
+      {isHydrated && showTutorial && !loading && arrivalCards.length > 0 && (
         <Tutorial
           onClose={() => {
             localStorage.setItem("tutorialComplete", "true");

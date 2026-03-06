@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { fetchNearbyStops, searchStops } from "../stopSearchApi";
@@ -6,6 +6,7 @@ import { formatStopName } from "../formatStopName";
 import type { StopSearchResult } from "../types";
 
 const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
+const RECENTS_EVENT = "buswatch-stop-search-recents-change";
 const SEARCH_LIMIT = 5;
 const NEARBY_LIMIT = 3;
 const MAX_VISIBLE_RESULTS = 5;
@@ -31,6 +32,8 @@ type LocationState =
   | "unavailable";
 
 function loadRecents(): StopSearchResult[] {
+  if (typeof window === "undefined") return [];
+
   try {
     const raw = localStorage.getItem(RECENT_STOPS_KEY);
     if (!raw) return [];
@@ -47,6 +50,29 @@ function loadRecents(): StopSearchResult[] {
   } catch {
     return [];
   }
+}
+
+function saveRecents(recents: StopSearchResult[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)));
+  window.dispatchEvent(new Event(RECENTS_EVENT));
+}
+
+function subscribeToRecents(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== RECENT_STOPS_KEY) return;
+    onStoreChange();
+  };
+  const handleCustomEvent = () => onStoreChange();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(RECENTS_EVENT, handleCustomEvent);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(RECENTS_EVENT, handleCustomEvent);
+  };
 }
 
 function formatDistance(distanceMeters: number | undefined): string {
@@ -137,9 +163,7 @@ export default function StopSearchHeader({
   );
   const [nearestStops, setNearestStops] = useState<StopSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<StopSearchResult[]>([]);
-  const [recents, setRecents] = useState<StopSearchResult[]>(() =>
-    loadRecents(),
-  );
+  const recents = useSyncExternalStore(subscribeToRecents, loadRecents, () => []);
   const [statusMessage, setStatusMessage] = useState("");
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -229,10 +253,6 @@ export default function StopSearchHeader({
     };
   }, [geo?.lat, geo?.lon, isExpanded, query]);
 
-  useEffect(() => {
-    localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)));
-  }, [recents]);
-
   const dropdownResults = useMemo(() => {
     const normalizedQuery = query.trim();
     if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS);
@@ -254,13 +274,10 @@ export default function StopSearchHeader({
   }
 
   function handleSelect(stop: StopSearchResult) {
-    setRecents((prev) => {
-      const deduped = [
-        stop,
-        ...prev.filter((entry) => entry.code !== stop.code),
-      ];
-      return deduped.slice(0, 3);
-    });
+    saveRecents([
+      stop,
+      ...recents.filter((entry) => entry.code !== stop.code),
+    ]);
 
     onSelectStop(stop.code);
     closeSearch();

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server",
     "lint": "eslint .",
     "preview": "vite preview",
     "start": "node --experimental-strip-types server.ts",
