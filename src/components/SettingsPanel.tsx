@@ -301,9 +301,6 @@ export default function SettingsPanel({
           {scanError && (
             <p className="settings-panel__scan-error">{scanError}</p>
           )}
-          <p className="settings-panel__attribution">
-            Map data &copy; OpenStreetMap contributors
-          </p>
         </div>
       </div>
 

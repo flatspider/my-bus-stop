@@ -1480,12 +1480,6 @@ html.dark .bus-card__vehicle-dot--fallback {
   margin-top: 4px;
 }
 
-.settings-panel__attribution {
-  margin-top: 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
 /* ── QR Scanner Overlay ── */
 .qr-scanner {
   position: fixed;
