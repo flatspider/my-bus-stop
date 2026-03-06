@@ -156,6 +156,19 @@ function toCardinal(lat1: number, lon1: number, lat2: number, lon2: number): Car
   return dLon >= 0 ? "EB" : "WB"
 }
 
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6_371_000
+  const toRad = (value: number) => (value * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
 function isOpposite(a: Cardinal, b: Cardinal): boolean {
   return (
     (a === "NB" && b === "SB") ||
@@ -430,9 +443,7 @@ async function main() {
     const tripDirections = await loadTrips(tripsPath)
 
     let stopTimesRows = 0
-    let prevTripId: string | null = null
-    let prevStopId: string | null = null
-    let prevSequence: number | null = null
+    const LOOP_THRESHOLD_METERS = 200
 
     for (const stop of stopRows.values()) {
       const existing = accumulators.get(stop.code) ?? createAccumulator(stop.code)
@@ -448,6 +459,16 @@ async function main() {
       }
       accumulators.set(stop.code, existing)
     }
+
+    // --- Pass 1: Find first/last stop per trip and collect all stops per trip ---
+    interface TripSummary {
+      firstStopId: string
+      lastStopId: string
+      firstSequence: number
+      lastSequence: number
+      stopIds: string[]
+    }
+    const tripSummaries = new Map<string, TripSummary>()
 
     await streamCsv(
       stopTimesPath,
@@ -465,49 +486,59 @@ async function main() {
         const stopId = (cols[headerMap.get("stop_id") as number] ?? "").trim()
         const rawSequence = (cols[headerMap.get("stop_sequence") as number] ?? "").trim()
         const sequence = Number.parseFloat(rawSequence)
-        const currentStop = stopRows.get(stopId)
-        if (!tripId || !currentStop) {
-          prevTripId = tripId || null
-          prevStopId = stopId || null
-          prevSequence = Number.isNaN(sequence) ? null : sequence
+        if (!tripId || !stopId || Number.isNaN(sequence)) return
+
+        const existing = tripSummaries.get(tripId)
+        if (!existing) {
+          tripSummaries.set(tripId, {
+            firstStopId: stopId,
+            lastStopId: stopId,
+            firstSequence: sequence,
+            lastSequence: sequence,
+            stopIds: [stopId],
+          })
           return
         }
 
-        const directionId = tripDirections.get(tripId) ?? null
-        const currentAcc = accumulators.get(currentStop.code) ?? createAccumulator(currentStop.code)
-        currentAcc.serviceRows += 1
-        incrementNameCount(currentAcc, currentStop.name, 1)
-        updateDirectionSignal(currentAcc, directionId, null)
-        accumulators.set(currentStop.code, currentAcc)
-
-        const isContinuousTrip = (
-          prevTripId === tripId &&
-          prevStopId !== null &&
-          prevSequence !== null &&
-          !Number.isNaN(sequence) &&
-          sequence > prevSequence
-        )
-
-        if (isContinuousTrip) {
-          const previousStop = stopRows.get(prevStopId as string)
-          if (previousStop) {
-            const cardinal = toCardinal(previousStop.lat, previousStop.lon, currentStop.lat, currentStop.lon)
-            if (cardinal) {
-              const prevAcc = accumulators.get(previousStop.code) ?? createAccumulator(previousStop.code)
-              updateDirectionSignal(prevAcc, directionId, cardinal)
-              accumulators.set(previousStop.code, prevAcc)
-
-              updateDirectionSignal(currentAcc, directionId, cardinal)
-              accumulators.set(currentStop.code, currentAcc)
-            }
-          }
+        existing.stopIds.push(stopId)
+        if (sequence < existing.firstSequence) {
+          existing.firstSequence = sequence
+          existing.firstStopId = stopId
         }
-
-        prevTripId = tripId
-        prevStopId = stopId
-        prevSequence = Number.isNaN(sequence) ? null : sequence
+        if (sequence > existing.lastSequence) {
+          existing.lastSequence = sequence
+          existing.lastStopId = stopId
+        }
       },
     )
+
+    // --- Pass 2: Compute route-level direction per trip and assign to each stop ---
+    for (const [tripId, summary] of tripSummaries.entries()) {
+      const directionId = tripDirections.get(tripId) ?? null
+      const firstStop = stopRows.get(summary.firstStopId)
+      const lastStop = stopRows.get(summary.lastStopId)
+
+      // Compute route-level cardinal from first to last stop
+      let routeCardinal: Cardinal | null = null
+      if (firstStop && lastStop) {
+        const distMeters = haversineMeters(firstStop.lat, firstStop.lon, lastStop.lat, lastStop.lon)
+        if (distMeters > LOOP_THRESHOLD_METERS) {
+          routeCardinal = toCardinal(firstStop.lat, firstStop.lon, lastStop.lat, lastStop.lon)
+        }
+      }
+
+      // Apply route-level direction to every stop on this trip
+      for (const stopId of summary.stopIds) {
+        const stop = stopRows.get(stopId)
+        if (!stop) continue
+
+        const acc = accumulators.get(stop.code) ?? createAccumulator(stop.code)
+        acc.serviceRows += 1
+        incrementNameCount(acc, stop.name, 1)
+        updateDirectionSignal(acc, directionId, routeCardinal)
+        accumulators.set(stop.code, acc)
+      }
+    }
 
     feedReports.push({
       feed,
