@@ -13,61 +13,65 @@ import StatusDot from "./components/StaleDataBanner";
 import SettingsPanel from "./components/SettingsPanel";
 import Tutorial from "./components/Tutorial";
 import StopSearchHeader from "./components/StopSearchHeader";
-import { SETTINGS_CLOSE_HINT_DELAY_MS } from "./settingsHints";
-import { fetchStopMiniMap } from "./stopSearchApi";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
-import type { StopMiniMapResponse } from "./types";
-import { isMiniMapUrlEnabled, shouldForceLeadCardNow } from "./urlFlags";
+import { shouldForceLeadCardNow } from "./urlFlags";
+import type { InitialStopData } from "./initialStopData";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
-type ReadyMiniMap = Extract<StopMiniMapResponse, { status: "ready" }>;
 
-function isSupportedMiniMapLayout(layoutVersion: string): layoutVersion is "v2" | "v3" {
-  return layoutVersion === "v2" || layoutVersion === "v3";
+interface StopPageProps {
+  initialData?: InitialStopData | null;
 }
 
-export default function StopPage() {
+export default function StopPage({ initialData = null }: StopPageProps) {
   const { stopCode } = useParams<{ stopCode: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const normalizedStopCode = stopCode?.trim() ?? "";
-  const miniMapUrlEnabled = isMiniMapUrlEnabled(location.search);
   const forceLeadCardNow = shouldForceLeadCardNow(location.search);
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
-  const [stopName, setStopName] = useState("");
-  const [routes, setRoutes] = useState<BusRoute[]>([]);
-  const [loading, setLoading] = useState(true);
+  const matchedInitialData =
+    initialData?.stopCode === normalizedStopCode ? initialData : null;
+  const [stopName, setStopName] = useState(() => matchedInitialData?.stopName ?? "");
+  const [routes, setRoutes] = useState<BusRoute[]>(() => matchedInitialData?.routes ?? []);
+  const [loading, setLoading] = useState(() => matchedInitialData === null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(0);
-  const [nowMs, setNowMs] = useState(Date.now());
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetchAtMs, setLastFetchAtMs] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showCloseHint, setShowCloseHint] = useState(false);
-  const [searchExpanded, setSearchExpanded] = useState(false);
-  const [miniMapLoading, setMiniMapLoading] = useState(false);
-  const [miniMap, setMiniMap] = useState<StopMiniMapResponse | null>(null);
-  const [showTutorial, setShowTutorial] = useState(
-    () => !localStorage.getItem("tutorialComplete"),
+  const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(() =>
+    matchedInitialData ? matchedInitialData.fetchedAt + MIN_REQUEST_GAP_MS : 0,
   );
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [error, setError] = useState<string | null>(() => matchedInitialData?.error ?? null);
+  const [lastFetchAtMs, setLastFetchAtMs] = useState(() => matchedInitialData?.fetchedAt ?? 0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
-  const readyMiniMapByStopRef = useRef<Record<string, ReadyMiniMap>>({});
   const inFlightRequestRef = useRef<{
     stopCode: string;
     promise: Promise<void>;
   } | null>(null);
+  const isFirstRouteRenderRef = useRef(true);
   const { settings, updateSetting } = useSettings();
+
+  if (matchedInitialData) {
+    lastRequestAtByStopRef.current[normalizedStopCode] = matchedInitialData.fetchedAt;
+  }
 
   useEffect(() => {
     activeStopCodeRef.current = normalizedStopCode;
+    if (isFirstRouteRenderRef.current) {
+      isFirstRouteRenderRef.current = false;
+      return;
+    }
     setLoading(true);
     setError(null);
   }, [normalizedStopCode]);
 
-  const fetchBusData = useCallback(async () => {
+  const fetchBusData = useCallback(async (options?: { force?: boolean }) => {
     if (!isValidStopCode) return;
 
     const inFlight = inFlightRequestRef.current;
@@ -78,7 +82,7 @@ export default function StopPage() {
     const now = Date.now();
     const lastRequestAt =
       lastRequestAtByStopRef.current[normalizedStopCode] ?? 0;
-    if (now - lastRequestAt < MIN_REQUEST_GAP_MS) {
+    if (!options?.force && now - lastRequestAt < MIN_REQUEST_GAP_MS) {
       return;
     }
 
@@ -131,106 +135,26 @@ export default function StopPage() {
   }, []);
 
   useEffect(() => {
-    void fetchBusData();
+    setIsHydrated(true);
+    setShowTutorial(!localStorage.getItem("tutorialComplete"));
+  }, []);
+
+  useEffect(() => {
+    if (!matchedInitialData) {
+      void fetchBusData();
+    }
     const interval = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void fetchBusData();
     }, AUTO_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [fetchBusData]);
-
-  useEffect(() => {
-    if (miniMap?.status === "ready") {
-      readyMiniMapByStopRef.current[miniMap.code] = miniMap;
-    }
-  }, [miniMap]);
-
-  useEffect(() => {
-    if (!miniMapUrlEnabled || !settings.miniMapBeta || !isValidStopCode) {
-      setMiniMapLoading(false);
-      setMiniMap(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setMiniMapLoading(true);
-    setMiniMap((prev) => {
-      if (
-        prev?.status === "ready" &&
-        prev.code === normalizedStopCode &&
-        isSupportedMiniMapLayout(prev.layoutVersion)
-      ) {
-        return prev;
-      }
-      return null;
-    });
-
-    void fetchStopMiniMap(normalizedStopCode, controller.signal)
-      .then((payload) => {
-        if (!controller.signal.aborted) {
-          if (payload.status === "ready") {
-            setMiniMap(payload);
-            return;
-          }
-
-          setMiniMap((prev) => {
-            if (
-              prev?.status === "ready" &&
-              prev.code === normalizedStopCode &&
-              isSupportedMiniMapLayout(prev.layoutVersion)
-            ) {
-              return prev;
-            }
-            return payload;
-          });
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setMiniMap((prev) => {
-            if (
-              prev?.status === "ready" &&
-              prev.code === normalizedStopCode &&
-              isSupportedMiniMapLayout(prev.layoutVersion)
-            ) {
-              return prev;
-            }
-            return {
-              status: "unavailable",
-              code: normalizedStopCode,
-              reason: "error",
-            };
-          });
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setMiniMapLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [isValidStopCode, miniMapUrlEnabled, normalizedStopCode, settings.miniMapBeta]);
+  }, [fetchBusData, matchedInitialData]);
 
   const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes]);
   const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(
     arrivalCards,
-    !settingsOpen,
+    true,
   );
-  const hasHiddenCards = settingsOpen && arrivalCards.length > 1;
-
-  useEffect(() => {
-    if (!hasHiddenCards) {
-      setShowCloseHint(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowCloseHint(true);
-    }, SETTINGS_CLOSE_HINT_DELAY_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [hasHiddenCards]);
 
   const refreshCooldownSeconds = Math.max(
     0,
@@ -254,10 +178,6 @@ export default function StopPage() {
     topCard && forceLeadCardNow
       ? { ...topCard.arrival, minutes: "now", minutesNum: 0 }
       : topCard?.arrival;
-  const resolvedMiniMap =
-    miniMap?.status === "ready"
-      ? miniMap
-      : readyMiniMapByStopRef.current[normalizedStopCode] ?? miniMap;
 
   const cardsClassName = [
     "cards",
@@ -282,7 +202,7 @@ export default function StopPage() {
   function handleStopSelect(nextStopCode: string) {
     const targetPath = `/stop/${nextStopCode}`;
     if (normalizedStopCode === nextStopCode) {
-      void fetchBusData();
+      void fetchBusData({ force: true });
     } else {
       navigate(targetPath);
     }
@@ -294,10 +214,6 @@ export default function StopPage() {
     ? "Unable to fetch arrivals right now."
     : "No live arrivals reported for this stop right now.";
   const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
-  const shouldShowMiniMap =
-    miniMapUrlEnabled &&
-    settings.miniMapBeta &&
-    (miniMapLoading || resolvedMiniMap?.status === "ready");
 
   return (
     <div className="app">
@@ -314,28 +230,17 @@ export default function StopPage() {
             }
             stopName={stopName}
             showStopTitle={settings.showStopTitle}
-            showMiniMap={shouldShowMiniMap}
-            miniMapLoading={miniMapLoading}
-            miniMap={resolvedMiniMap}
             onSelectStop={handleStopSelect}
             onExpandedChange={setSearchExpanded}
           />
         </div>
         {!searchExpanded && (
           <div className="app-header__right">
-            {showCloseHint && (
-              <span
-                className="settings-close-hint"
-                role="status"
-                aria-live="polite"
-              >
-                Tap to close
-              </span>
-            )}
             <button
               className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`}
               onClick={() => setSettingsOpen((prev) => !prev)}
-              aria-label="Settings"
+              aria-label={settingsOpen ? "Close settings" : "Open settings"}
+              aria-expanded={settingsOpen}
               data-tutorial="settings-gear"
             >
               <svg
@@ -360,41 +265,9 @@ export default function StopPage() {
 
       <div className={cardsClassName}>
         {loading ? (
-          <>
-            <div className="loading">Loading...</div>
-            {showSettingsPanel && (
-              <SettingsPanel
-                inline
-                onRefresh={() => void fetchBusData()}
-                refreshLocked={refreshLocked}
-                isRefreshing={isRefreshing}
-                refreshCooldownSeconds={refreshCooldownSeconds}
-                showMiniMapToggle={miniMapUrlEnabled}
-                settings={settings}
-                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                onNavigateToStop={() => setSettingsOpen(false)}
-                onUpdateSetting={updateSetting}
-              />
-            )}
-          </>
+          <div className="loading">Loading...</div>
         ) : noData ? (
-          <>
-            <div className="loading">{noDataMessage}</div>
-            {showSettingsPanel && (
-              <SettingsPanel
-                inline
-                onRefresh={() => void fetchBusData()}
-                refreshLocked={refreshLocked}
-                isRefreshing={isRefreshing}
-                refreshCooldownSeconds={refreshCooldownSeconds}
-                showMiniMapToggle={miniMapUrlEnabled}
-                settings={settings}
-                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                onNavigateToStop={() => setSettingsOpen(false)}
-                onUpdateSetting={updateSetting}
-              />
-            )}
-          </>
+          <div className="loading">{noDataMessage}</div>
         ) : (
           <>
             {topCard && (
@@ -412,50 +285,39 @@ export default function StopPage() {
               </div>
             )}
             <div className="cards__list">
-              {!settingsOpen &&
-                lowerCards.map((card) => (
-                  <div key={card.id} className={getCardShellClassName(card.id)}>
-                    <BusCard
-                      arrival={card.arrival}
-                      route={card.route}
-                      showMinSuffix={settings.showMinSuffix}
-                      showRouteName={settings.showRouteName}
-                      showStopsAway={settings.showStopsAway}
-                      hideVehicleStatusDot={isStale}
-                    />
-                  </div>
-                ))}
-              {showSettingsPanel && (
-                <>
-                  <SettingsPanel
-                    inline
-                    onRefresh={() => void fetchBusData()}
-                    refreshLocked={refreshLocked}
-                    isRefreshing={isRefreshing}
-                    refreshCooldownSeconds={refreshCooldownSeconds}
-                    showMiniMapToggle={miniMapUrlEnabled}
-                    settings={settings}
-                    tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                    onNavigateToStop={() => setSettingsOpen(false)}
-                    onUpdateSetting={updateSetting}
+              {lowerCards.map((card) => (
+                <div key={card.id} className={getCardShellClassName(card.id)}>
+                  <BusCard
+                    arrival={card.arrival}
+                    route={card.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
-                  {hasHiddenCards && (
-                    <p
-                      className="settings-hidden-cue"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      Additional buses hidden while settings is open.
-                    </p>
-                  )}
-                </>
-              )}
+                </div>
+              ))}
             </div>
           </>
         )}
+        {showSettingsPanel && (
+          <div className="settings-sheet-layer">
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onRefresh={() => void fetchBusData({ force: true })}
+              refreshLocked={refreshLocked}
+              isRefreshing={isRefreshing}
+              refreshCooldownSeconds={refreshCooldownSeconds}
+              settings={settings}
+              tutorialHighlightsStopInput={tutorialHighlightsStopInput}
+              onNavigateToStop={() => setSettingsOpen(false)}
+              onUpdateSetting={updateSetting}
+            />
+          </div>
+        )}
       </div>
 
-      {showTutorial && !loading && arrivalCards.length > 0 && (
+      {isHydrated && showTutorial && !loading && arrivalCards.length > 0 && (
         <Tutorial
           onClose={() => {
             localStorage.setItem("tutorialComplete", "true");

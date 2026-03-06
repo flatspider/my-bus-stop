@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useEffectEvent } from "react";
 
 const MOBILE_BREAKPOINT_PX = 600;
 const VIEWPORT_GUTTER_PX = 12;
@@ -119,9 +119,7 @@ export default function Tutorial({
   const [visible, setVisible] = useState(true);
   const [instantHide, setInstantHide] = useState(false);
 
-  // Stable ref so the effect never re-fires from prop identity changes
-  const openSettingsRef = useRef(onOpenSettings);
-  openSettingsRef.current = onOpenSettings;
+  const openSettingsEvent = useEffectEvent(onOpenSettings);
 
   // Measure on mount
   useEffect(() => {
@@ -151,7 +149,7 @@ export default function Tutorial({
 
     if (shouldOpenSettings) {
       openTimer = setTimeout(() => {
-        openSettingsRef.current();
+        openSettingsEvent();
       }, 0);
 
       const startedAt = performance.now();

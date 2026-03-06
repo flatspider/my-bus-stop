@@ -1,21 +1,129 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { config } from "./server/config.ts";
 import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
-import { getStopMiniMap } from "./server/miniMap.ts";
+import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./src/stopConfig.ts";
+import type { InitialStopData } from "./src/initialStopData.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
+const DIST_DIR = path.join(__dirname, "dist");
+const CLIENT_INDEX_PATH = path.join(DIST_DIR, "index.html");
+const CLIENT_MANIFEST_PATH = path.join(DIST_DIR, ".vite", "manifest.json");
+const SERVER_ENTRY_PATH = path.join(DIST_DIR, "server", "entry-server.js");
 
 console.log(`BusWatch mode: ${config.mode}`);
+
+interface ViteManifestEntry {
+  file: string;
+  css?: string[];
+}
+
+interface RenderServerModule {
+  render: (url: string, initialStopData: InitialStopData | null) => string;
+}
+
+let cachedHtmlTemplate: string | null = null;
+let cachedClientEntry: ViteManifestEntry | null = null;
+let cachedRenderModule: RenderServerModule | null = null;
+
+function serializeBootstrap(initialStopData: InitialStopData | null): string {
+  return JSON.stringify(initialStopData).replace(/</g, "\\u003c");
+}
+
+async function loadClientTemplate(): Promise<string> {
+  if (cachedHtmlTemplate) return cachedHtmlTemplate;
+  cachedHtmlTemplate = await readFile(CLIENT_INDEX_PATH, "utf-8");
+  return cachedHtmlTemplate;
+}
+
+async function loadClientEntry(): Promise<ViteManifestEntry> {
+  if (cachedClientEntry) return cachedClientEntry;
+
+  const raw = await readFile(CLIENT_MANIFEST_PATH, "utf-8");
+  const manifest = JSON.parse(raw) as Record<string, ViteManifestEntry>;
+  const entry = manifest["index.html"];
+  if (!entry) {
+    throw new Error("Could not find index.html in Vite manifest");
+  }
+
+  cachedClientEntry = entry;
+  return entry;
+}
+
+async function loadRenderModule(): Promise<RenderServerModule> {
+  if (cachedRenderModule) return cachedRenderModule;
+
+  const moduleUrl = `${pathToFileURL(SERVER_ENTRY_PATH).href}?t=${Date.now()}`;
+  const imported = await import(moduleUrl) as RenderServerModule;
+  cachedRenderModule = imported;
+  return imported;
+}
+
+async function buildSsrDocument(
+  url: string,
+  initialStopData: InitialStopData | null,
+): Promise<string> {
+  const [template, entry, renderModule] = await Promise.all([
+    loadClientTemplate(),
+    loadClientEntry(),
+    loadRenderModule(),
+  ]);
+
+  const appHtml = renderModule.render(url, initialStopData);
+  const cssLinks = (entry.css ?? [])
+    .map((href) => `    <link rel="stylesheet" crossorigin href="/${href}">`)
+    .join("\n");
+  const bootstrapScript = [
+    "    <script>",
+    `      window.__BUSWATCH_INITIAL_DATA__ = ${serializeBootstrap(initialStopData)};`,
+    "    </script>",
+  ].join("\n");
+
+  let html = template;
+  html = html.replace(
+    /<link rel="stylesheet" crossorigin href="\/assets\/[^"]+">/,
+    cssLinks || "",
+  );
+  html = html.replace(
+    /<script type="module" crossorigin src="\/assets\/[^"]+"><\/script>/,
+    `${bootstrapScript}\n    <script type="module" crossorigin src="/${entry.file}"></script>`,
+  );
+  html = html.replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`);
+  return html;
+}
+
+async function fetchInitialStopData(stopCode: string): Promise<InitialStopData> {
+  const fetchedAt = Date.now();
+
+  try {
+    const data = await fetchSiri(stopCode);
+    return {
+      stopCode,
+      stopName: data.stopName,
+      routes: data.routes,
+      fetchedAt,
+      error: null,
+    };
+  } catch (err) {
+    console.error("[ssr] Failed to fetch stop data:", err);
+    return {
+      stopCode,
+      stopName: "",
+      routes: [],
+      fetchedAt,
+      error: "Unable to fetch arrivals right now.",
+    };
+  }
+}
 
 function parseNumberParam(raw: unknown): number | null {
   if (typeof raw !== "string") return null;
@@ -111,20 +219,34 @@ app.get("/api/stops/exists", (req, res) => {
   res.json({ exists: stopCodeExists(code) });
 });
 
-app.get("/api/stops/minimap", async (req, res) => {
-  const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
-  if (!/^\d{6}$/.test(code)) {
-    res.status(400).json({ error: "Missing or invalid code parameter" });
+app.get("/", (_req, res) => {
+  res.redirect(302, `/stop/${DEFAULT_STOP_CODE}`);
+});
+
+app.get("/stop/:stopCode", async (req, res, next) => {
+  if (!isProduction) {
+    next();
     return;
   }
 
-  const payload = await getStopMiniMap(code);
-  if (payload.status === "ready") {
-    res.setHeader("Cache-Control", "public, max-age=86400");
-  } else {
-    res.setHeader("Cache-Control", "public, max-age=1800");
+  const stopCode = typeof req.params.stopCode === "string"
+    ? req.params.stopCode.trim()
+    : "";
+
+  if (!STOP_CODE_PATTERN.test(stopCode)) {
+    res.redirect(302, `/stop/${DEFAULT_STOP_CODE}`);
+    return;
   }
-  res.json(payload);
+
+  try {
+    const initialStopData = await fetchInitialStopData(stopCode);
+    const html = await buildSsrDocument(req.originalUrl, initialStopData);
+    res.setHeader("Cache-Control", "no-store");
+    res.status(initialStopData.error ? 502 : 200).send(html);
+  } catch (err) {
+    console.error("[ssr] Document render failed:", err);
+    next(err);
+  }
 });
 
 if (!isProduction) {
@@ -203,11 +325,11 @@ app.get("/api/corridor-snapshots/download", async (_req, res) => {
 });
 
 // Serve static files from dist/
-app.use(express.static(path.join(__dirname, "dist")));
+app.use(express.static(DIST_DIR));
 
 // SPA fallback — serve index.html for client-side routes
 app.get("/{*splat}", (_req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(DIST_DIR, "index.html"));
 });
 
 // --- Background Polling ---

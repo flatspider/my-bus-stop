@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { fetchNearbyStops, searchStops } from "../stopSearchApi";
 import { formatStopName } from "../formatStopName";
-import type { StopMiniMapResponse, StopSearchResult } from "../types";
+import type { StopSearchResult } from "../types";
 
 const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
+const RECENTS_EVENT = "buswatch-stop-search-recents-change";
+let cachedRecentsRaw: string | null | undefined;
+let cachedRecentsSnapshot: StopSearchResult[] = [];
 const SEARCH_LIMIT = 5;
 const NEARBY_LIMIT = 3;
 const MAX_VISIBLE_RESULTS = 5;
@@ -13,9 +16,6 @@ const MAX_VISIBLE_RESULTS = 5;
 interface StopSearchHeaderProps {
   stopName: string;
   showStopTitle: boolean;
-  showMiniMap: boolean;
-  miniMapLoading: boolean;
-  miniMap: StopMiniMapResponse | null;
   statusNode: ReactNode;
   onSelectStop: (code: string) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
@@ -34,22 +34,64 @@ type LocationState =
   | "unavailable";
 
 function loadRecents(): StopSearchResult[] {
+  if (typeof window === "undefined") return [];
+
   try {
     const raw = localStorage.getItem(RECENT_STOPS_KEY);
-    if (!raw) return [];
+    if (raw === cachedRecentsRaw) return cachedRecentsSnapshot;
+    if (!raw) {
+      cachedRecentsRaw = null;
+      cachedRecentsSnapshot = [];
+      return cachedRecentsSnapshot;
+    }
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) {
+      cachedRecentsRaw = raw;
+      cachedRecentsSnapshot = [];
+      return cachedRecentsSnapshot;
+    }
 
-    return parsed
+    cachedRecentsRaw = raw;
+    cachedRecentsSnapshot = parsed
       .filter((item): item is StopSearchResult => {
         if (!item || typeof item !== "object") return false;
         const maybe = item as Partial<StopSearchResult>;
         return typeof maybe.code === "string" && typeof maybe.name === "string";
       })
       .slice(0, 3);
+    return cachedRecentsSnapshot;
   } catch {
-    return [];
+    cachedRecentsRaw = null;
+    cachedRecentsSnapshot = [];
+    return cachedRecentsSnapshot;
   }
+}
+
+function saveRecents(recents: StopSearchResult[]): void {
+  if (typeof window === "undefined") return;
+  const nextRecents = recents.slice(0, 3);
+  const raw = JSON.stringify(nextRecents);
+  cachedRecentsRaw = raw;
+  cachedRecentsSnapshot = nextRecents;
+  localStorage.setItem(RECENT_STOPS_KEY, raw);
+  window.dispatchEvent(new Event(RECENTS_EVENT));
+}
+
+function subscribeToRecents(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key && event.key !== RECENT_STOPS_KEY) return;
+    onStoreChange();
+  };
+  const handleCustomEvent = () => onStoreChange();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(RECENTS_EVENT, handleCustomEvent);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(RECENTS_EVENT, handleCustomEvent);
+  };
 }
 
 function formatDistance(distanceMeters: number | undefined): string {
@@ -126,9 +168,6 @@ function renderStopTitle(raw: string, className: string): ReactNode {
 export default function StopSearchHeader({
   stopName,
   showStopTitle,
-  showMiniMap,
-  miniMapLoading,
-  miniMap,
   statusNode,
   onSelectStop,
   onExpandedChange,
@@ -143,9 +182,7 @@ export default function StopSearchHeader({
   );
   const [nearestStops, setNearestStops] = useState<StopSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<StopSearchResult[]>([]);
-  const [recents, setRecents] = useState<StopSearchResult[]>(() =>
-    loadRecents(),
-  );
+  const recents = useSyncExternalStore(subscribeToRecents, loadRecents, () => []);
   const [statusMessage, setStatusMessage] = useState("");
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -235,10 +272,6 @@ export default function StopSearchHeader({
     };
   }, [geo?.lat, geo?.lon, isExpanded, query]);
 
-  useEffect(() => {
-    localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify(recents.slice(0, 3)));
-  }, [recents]);
-
   const dropdownResults = useMemo(() => {
     const normalizedQuery = query.trim();
     if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS);
@@ -260,13 +293,10 @@ export default function StopSearchHeader({
   }
 
   function handleSelect(stop: StopSearchResult) {
-    setRecents((prev) => {
-      const deduped = [
-        stop,
-        ...prev.filter((entry) => entry.code !== stop.code),
-      ];
-      return deduped.slice(0, 3);
-    });
+    saveRecents([
+      stop,
+      ...recents.filter((entry) => entry.code !== stop.code),
+    ]);
 
     onSelectStop(stop.code);
     closeSearch();
@@ -305,104 +335,57 @@ export default function StopSearchHeader({
 
   return (
     <div
-      className={`stop-search${!showMiniMap && !showStopTitle ? " stop-search--icon-only" : ""}`}
+      className={`stop-search${!showStopTitle ? " stop-search--icon-only" : ""}`}
       ref={wrapperRef}
     >
       {!isExpanded ? (
         <button
           type="button"
-          className={`stop-search__trigger${showMiniMap ? " stop-search__trigger--mini" : ""}${!showMiniMap && !showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
+          className={`stop-search__trigger${!showStopTitle ? " stop-search__trigger--icon-only" : ""}`}
           onClick={handleOpenSearch}
           aria-label="Search for a bus stop"
           data-tutorial="default-stop"
         >
-          {showMiniMap ? (
-            <span className="stop-search__mini-layout">
-              <span className="stop-search__mini-wrap">
-                <span className="stop-search__mini">
-                  <span
-                    className={`stop-search__mini-skeleton${miniMapLoading ? " is-visible" : ""}`}
-                    aria-hidden="true"
-                  >
-                    <span className="stop-search__mini-line stop-search__mini-line--h-main" />
-                    <span className="stop-search__mini-line stop-search__mini-line--v-main" />
-                    <span className="stop-search__mini-line stop-search__mini-line--h-context-1" />
-                    <span className="stop-search__mini-line stop-search__mini-line--v-context-1" />
-                    <span className="stop-search__mini-marker stop-search__mini-marker--v2" />
-                  </span>
-                  {miniMap?.status === "ready" && (
-                    <span
-                      className="stop-search__mini-map is-ready"
-                      // SVG is generated server-side from fixed geometry and labels.
-                      dangerouslySetInnerHTML={{ __html: miniMap.svg }}
-                    />
-                  )}
+          <>
+            {showStopTitle && statusNode}
+            {showStopTitle && stopName && (
+              <span className="stop-search__title-wrap">
+                <span className="stop-search__title-block">
+                  <span className="stop-search__title-accent" aria-hidden="true" />
+                  {renderStopTitle(stopName, "stop-name")}
                 </span>
               </span>
-              <span className="stop-search__mini-card">
-                <span className="stop-search__mini-status">{statusNode}</span>
-                {showStopTitle && stopName && (
-                  <span className="stop-search__mini-title-wrap">
-                    {renderStopTitle(stopName, "stop-search__mini-title")}
-                  </span>
-                )}
-                {showStopTitle && !stopName && (
-                  <span className="stop-search__mini-fallback">
-                    Search stop
-                  </span>
-                )}
-                {!showStopTitle && (
-                  <span className="stop-search__mini-fallback">
-                    Search stop
-                  </span>
-                )}
-                <span className="stop-search__mini-caption">
-                  Tap to change stop
+            )}
+            {showStopTitle && !stopName && (
+              <span className="stop-search__fallback">
+                <span className="stop-search__title-block">
+                  <span className="stop-search__title-accent" aria-hidden="true" />
+                  Search stop
                 </span>
               </span>
-            </span>
-          ) : (
-            <>
-              {showStopTitle && statusNode}
-              {showStopTitle && stopName && (
-                <span className="stop-search__title-wrap">
-                  <span className="stop-search__title-block">
-                    <span className="stop-search__title-accent" aria-hidden="true" />
-                    {renderStopTitle(stopName, "stop-name")}
-                  </span>
-                </span>
-              )}
-              {showStopTitle && !stopName && (
-                <span className="stop-search__fallback">
-                  <span className="stop-search__title-block">
-                    <span className="stop-search__title-accent" aria-hidden="true" />
-                    Search stop
-                  </span>
-                </span>
-              )}
-              {!showStopTitle && (
-                <span className="stop-search__icon-only">
-                  {statusNode}
-                  <svg
-                    className="stop-search__icon"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m20 20-3.5-3.5" />
-                  </svg>
-                </span>
-              )}
-            </>
-          )}
-          {showStopTitle && !showMiniMap && (
+            )}
+            {!showStopTitle && (
+              <span className="stop-search__icon-only">
+                {statusNode}
+                <svg
+                  className="stop-search__icon"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </span>
+            )}
+          </>
+          {showStopTitle && (
             <svg
               className="stop-search__chevron"
               width="8"

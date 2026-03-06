@@ -3,19 +3,17 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { stopCodeExists } from "../stopSearchApi";
 import type { Settings } from "../useSettings";
-import { isMiniMapUrlEnabled } from "../urlFlags";
 
 const QrScanner = lazy(() => import("./QrScanner"));
 
 interface SettingsPanelProps {
+  onClose: () => void;
   onRefresh: () => void;
   refreshLocked: boolean;
   isRefreshing: boolean;
   refreshCooldownSeconds: number;
   settings: Settings;
-  showMiniMapToggle?: boolean;
   tutorialHighlightsStopInput?: boolean;
-  inline?: boolean;
   onNavigateToStop?: () => void;
   onUpdateSetting: <K extends keyof Settings>(
     key: K,
@@ -45,15 +43,33 @@ function ToggleRow({
   );
 }
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`settings-panel__chevron${open ? " settings-panel__chevron--open" : ""}`}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
 export default function SettingsPanel({
+  onClose,
   onRefresh,
   refreshLocked,
   isRefreshing,
   refreshCooldownSeconds,
   settings,
-  showMiniMapToggle,
   tutorialHighlightsStopInput = false,
-  inline = false,
   onNavigateToStop,
   onUpdateSetting,
 }: SettingsPanelProps) {
@@ -62,13 +78,11 @@ export default function SettingsPanel({
   const [scanError, setScanError] = useState("");
   const [isValidatingStop, setIsValidatingStop] = useState(false);
   const [isInputShaking, setIsInputShaking] = useState(false);
-  const [hasFocusedStopInput, setHasFocusedStopInput] = useState(false);
   const [canUseQrScan, setCanUseQrScan] = useState(false);
+  const [isChangeStopOpen, setIsChangeStopOpen] = useState(false);
   const shakeResetTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const shouldShowMiniMapToggle =
-    showMiniMapToggle ?? isMiniMapUrlEnabled(location.search);
 
   useEffect(() => {
     const coarsePointerMedia = window.matchMedia("(pointer: coarse)");
@@ -94,6 +108,11 @@ export default function SettingsPanel({
       setScannerOpen(false);
     }
   }, [canUseQrScan, scannerOpen]);
+
+  useEffect(() => {
+    if (!tutorialHighlightsStopInput) return;
+    setIsChangeStopOpen(true);
+  }, [tutorialHighlightsStopInput]);
 
   useEffect(() => {
     return () => {
@@ -164,7 +183,6 @@ export default function SettingsPanel({
 
   const normalizedStopCode = stopCode.trim();
   const canGo = /^\d{6}$/.test(normalizedStopCode);
-  const showStopHelp = hasFocusedStopInput;
 
   function handleGo() {
     if (!canGo) return;
@@ -172,9 +190,7 @@ export default function SettingsPanel({
   }
 
   return (
-    <div
-      className={`bus-card bus-card--settings${inline ? " bus-card--settings-inline" : ""}`}
-    >
+    <div className="bus-card bus-card--settings" role="dialog" aria-label="Settings">
       <div className="bus-card__accent bus-card__accent--gray" />
       <div className="settings-panel__content">
         <button
@@ -188,6 +204,7 @@ export default function SettingsPanel({
               ? `Refresh (${refreshCooldownSeconds}s)`
               : "Refresh"}
         </button>
+
         <div className="settings-toggles">
           <ToggleRow
             label="Show 'min' suffix"
@@ -209,13 +226,6 @@ export default function SettingsPanel({
             checked={settings.showStopTitle}
             onChange={(v) => onUpdateSetting("showStopTitle", v)}
           />
-          {shouldShowMiniMapToggle && (
-            <ToggleRow
-              label="Mini map (beta)"
-              checked={settings.miniMapBeta}
-              onChange={(v) => onUpdateSetting("miniMapBeta", v)}
-            />
-          )}
           <ToggleRow
             label="Dark mode"
             checked={settings.darkMode}
@@ -223,84 +233,106 @@ export default function SettingsPanel({
           />
         </div>
 
-        <div>
-          <form
-            data-tutorial="stop-input"
-            className="settings-panel__form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleGo();
-            }}
+        <div className="settings-panel__section">
+          <button
+            className="settings-panel__disclosure"
+            type="button"
+            onClick={() => setIsChangeStopOpen((prev) => !prev)}
+            aria-expanded={isChangeStopOpen}
           >
-            <div className="settings-panel__input-wrap">
-              <input
-                className={`settings-panel__input${isInputShaking ? " settings-panel__input--shake" : ""}`}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                placeholder="Bus code"
-                value={stopCode}
-                onChange={(e) => {
-                  setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-                  if (scanError) setScanError("");
-                }}
-                onFocus={() => {
-                  setHasFocusedStopInput(true);
-                }}
-              />
-              {canUseQrScan && (
-                <button
-                  className="settings-panel__scan-btn"
-                  type="button"
-                  onClick={() => {
-                    setScannerOpen(true);
-                    setScanError("");
-                  }}
-                  aria-label="Scan QR code"
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                    <circle cx="12" cy="13" r="4" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <button
-              className={`settings-panel__go${tutorialHighlightsStopInput ? " settings-panel__go--tutorial-active" : ""}`}
-              type="submit"
-              disabled={!canGo || isValidatingStop}
-            >
-              {isValidatingStop ? "Checking..." : "Set stop"}
-            </button>
-          </form>
-          {showStopHelp && (
-            <div className="settings-stop-help">
-              <span className="settings-stop-help__text">
-                Find this 6-digit code at your bus stop.
+            <span className="settings-panel__disclosure-copy">
+              <span className="settings-panel__disclosure-title">Change stop</span>
+              <span className="settings-panel__disclosure-meta">
+                Stop code entry and scanner
               </span>
-              <a
-                className="settings-stop-help__link"
-                href="https://bustime.mta.info"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Learn where to find it
-              </a>
+            </span>
+            <Chevron open={isChangeStopOpen} />
+          </button>
+
+          {isChangeStopOpen && (
+            <div className="settings-panel__section-body">
+              <div className="settings-panel__advanced" data-tutorial="stop-input">
+                <form
+                  className="settings-panel__form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleGo();
+                  }}
+                >
+                  <div className="settings-panel__input-wrap">
+                    <input
+                      className={`settings-panel__input${isInputShaking ? " settings-panel__input--shake" : ""}`}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="Bus code"
+                      value={stopCode}
+                      onChange={(e) => {
+                        setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                        if (scanError) setScanError("");
+                      }}
+                    />
+                    {canUseQrScan && (
+                      <button
+                        className="settings-panel__scan-btn"
+                        type="button"
+                        onClick={() => {
+                          setScannerOpen(true);
+                          setScanError("");
+                        }}
+                        aria-label="Scan QR code"
+                      >
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className={`settings-panel__go${tutorialHighlightsStopInput ? " settings-panel__go--tutorial-active" : ""}`}
+                    type="submit"
+                    disabled={!canGo || isValidatingStop}
+                  >
+                    {isValidatingStop ? "Checking..." : "Set stop"}
+                  </button>
+                </form>
+
+                <div className="settings-stop-help">
+                  <span className="settings-stop-help__text">
+                    Find this 6-digit code at your bus stop.
+                  </span>
+                  <a
+                    className="settings-stop-help__link"
+                    href="https://bustime.mta.info"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Learn where to find it
+                  </a>
+                </div>
+                {scanError && (
+                  <p className="settings-panel__scan-error">{scanError}</p>
+                )}
+              </div>
             </div>
           )}
-          {scanError && (
-            <p className="settings-panel__scan-error">{scanError}</p>
-          )}
+        </div>
+
+        <div className="settings-panel__footer">
+          <button className="settings-panel__done" type="button" onClick={onClose}>
+            Done
+          </button>
         </div>
       </div>
 
