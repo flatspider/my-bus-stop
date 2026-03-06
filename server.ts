@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { config } from "./server/config.ts";
 import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
-import { compareAndLog, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
+import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 import { getStopMiniMap } from "./server/miniMap.ts";
@@ -135,11 +135,14 @@ if (!isProduction) {
 }
 
 // --- Snapshots API ---
+async function readJsonLinesFile(filePath: string): Promise<unknown[]> {
+  const raw = await readFile(filePath, "utf-8");
+  return raw.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+}
+
 app.get("/api/snapshots", async (_req, res) => {
   try {
-    const raw = await readFile(JSONL_PATH, "utf-8");
-    const lines = raw.trim().split("\n").filter(Boolean);
-    const snapshots = lines.map((line) => JSON.parse(line));
+    const snapshots = await readJsonLinesFile(JSONL_PATH);
     res.json(snapshots);
   } catch (err: unknown) {
     if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
@@ -153,9 +156,7 @@ app.get("/api/snapshots", async (_req, res) => {
 
 app.get("/api/snapshots/download", async (_req, res) => {
   try {
-    const raw = await readFile(JSONL_PATH, "utf-8");
-    const lines = raw.trim().split("\n").filter(Boolean);
-    const snapshots = lines.map((line) => JSON.parse(line));
+    const snapshots = await readJsonLinesFile(JSONL_PATH);
     const filename = `snapshots-${new Date().toISOString().slice(0, 10)}.json`;
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.setHeader("Content-Type", "application/json");
@@ -166,6 +167,37 @@ app.get("/api/snapshots/download", async (_req, res) => {
     } else {
       console.error("Error reading snapshots:", err);
       res.status(500).json({ error: "Failed to read snapshots" });
+    }
+  }
+});
+
+app.get("/api/corridor-snapshots", async (_req, res) => {
+  try {
+    const snapshots = await readJsonLinesFile(CORRIDOR_JSONL_PATH);
+    res.json(snapshots);
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      res.json([]);
+    } else {
+      console.error("Error reading corridor snapshots:", err);
+      res.status(500).json({ error: "Failed to read corridor snapshots" });
+    }
+  }
+});
+
+app.get("/api/corridor-snapshots/download", async (_req, res) => {
+  try {
+    const snapshots = await readJsonLinesFile(CORRIDOR_JSONL_PATH);
+    const filename = `corridor-snapshots-${new Date().toISOString().slice(0, 10)}.json`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/json");
+    res.json(snapshots);
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      res.status(404).json({ error: "No corridor snapshots file found" });
+    } else {
+      console.error("Error reading corridor snapshots:", err);
+      res.status(500).json({ error: "Failed to read corridor snapshots" });
     }
   }
 });
