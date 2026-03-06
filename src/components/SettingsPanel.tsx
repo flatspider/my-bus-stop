@@ -239,7 +239,7 @@ export default function SettingsPanel({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
-                placeholder="Bus stop code"
+                placeholder="Bus code"
                 value={stopCode}
                 onChange={(e) => {
                   setStopCode(e.target.value.replace(/\D/g, "").slice(0, 6));
@@ -280,7 +280,7 @@ export default function SettingsPanel({
               type="submit"
               disabled={!canGo || isValidatingStop}
             >
-              {isValidatingStop ? "Checking..." : "Go"}
+              {isValidatingStop ? "Checking..." : "Set stop"}
             </button>
           </form>
           {showStopHelp && (
@@ -301,9 +301,6 @@ export default function SettingsPanel({
           {scanError && (
             <p className="settings-panel__scan-error">{scanError}</p>
           )}
-          <p className="settings-panel__attribution">
-            Map data &copy; OpenStreetMap contributors
-          </p>
         </div>
       </div>
 
