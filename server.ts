@@ -50,9 +50,9 @@ async function loadClientEntry(): Promise<ViteManifestEntry> {
 
   const raw = await readFile(CLIENT_MANIFEST_PATH, "utf-8");
   const manifest = JSON.parse(raw) as Record<string, ViteManifestEntry>;
-  const entry = manifest["src/main.tsx"];
+  const entry = manifest["index.html"];
   if (!entry) {
-    throw new Error("Could not find src/main.tsx in Vite manifest");
+    throw new Error("Could not find index.html in Vite manifest");
   }
 
   cachedClientEntry = entry;
