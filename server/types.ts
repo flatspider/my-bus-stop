@@ -166,5 +166,13 @@ export interface CorridorSnapshot {
   siriStops: CorridorStopSiri[]
   gtfsArrivals: GtfsRtArrival[]  // GTFS-RT arrivals at the PRIMARY stop
   tripSummaries: { tripId: string; routeId: string; vehicleId: string; isFallbackSuspected: boolean }[]
-  vehiclePositions: { vehicleId: string; latitude: number; longitude: number; timestamp: number }[]
+  vehiclePositions: {
+    vehicleId: string
+    routeId: string
+    tripId: string
+    latitude: number
+    longitude: number
+    timestamp: number
+    currentStatus: string | null
+  }[]
 }

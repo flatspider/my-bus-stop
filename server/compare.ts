@@ -239,9 +239,12 @@ export async function logCorridorSnapshot(
     })),
     vehiclePositions: [...vehiclePositions.values()].map((vp) => ({
       vehicleId: vp.vehicleId,
+      routeId: vp.routeId,
+      tripId: vp.tripId,
       latitude: vp.latitude,
       longitude: vp.longitude,
       timestamp: vp.timestamp,
+      currentStatus: vp.currentStatus,
     })),
   }
 
