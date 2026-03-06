@@ -13,7 +13,6 @@ import StatusDot from "./components/StaleDataBanner";
 import SettingsPanel from "./components/SettingsPanel";
 import Tutorial from "./components/Tutorial";
 import StopSearchHeader from "./components/StopSearchHeader";
-import { SETTINGS_CLOSE_HINT_DELAY_MS } from "./settingsHints";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import { shouldForceLeadCardNow } from "./urlFlags";
@@ -45,7 +44,6 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const [error, setError] = useState<string | null>(() => matchedInitialData?.error ?? null);
   const [lastFetchAtMs, setLastFetchAtMs] = useState(() => matchedInitialData?.fetchedAt ?? 0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showCloseHint, setShowCloseHint] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -155,22 +153,8 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const arrivalCards = useMemo(() => deriveArrivalCards(routes), [routes]);
   const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(
     arrivalCards,
-    !settingsOpen,
+    true,
   );
-  const hasHiddenCards = settingsOpen && arrivalCards.length > 1;
-
-  useEffect(() => {
-    if (!hasHiddenCards) {
-      setShowCloseHint(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowCloseHint(true);
-    }, SETTINGS_CLOSE_HINT_DELAY_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [hasHiddenCards]);
 
   const refreshCooldownSeconds = Math.max(
     0,
@@ -252,19 +236,11 @@ export default function StopPage({ initialData = null }: StopPageProps) {
         </div>
         {!searchExpanded && (
           <div className="app-header__right">
-            {showCloseHint && (
-              <span
-                className="settings-close-hint"
-                role="status"
-                aria-live="polite"
-              >
-                Tap to close
-              </span>
-            )}
             <button
               className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`}
               onClick={() => setSettingsOpen((prev) => !prev)}
-              aria-label="Settings"
+              aria-label={settingsOpen ? "Close settings" : "Open settings"}
+              aria-expanded={settingsOpen}
               data-tutorial="settings-gear"
             >
               <svg
@@ -289,39 +265,9 @@ export default function StopPage({ initialData = null }: StopPageProps) {
 
       <div className={cardsClassName}>
         {loading ? (
-          <>
-            <div className="loading">Loading...</div>
-            {showSettingsPanel && (
-              <SettingsPanel
-                inline
-                onRefresh={() => void fetchBusData({ force: true })}
-                refreshLocked={refreshLocked}
-                isRefreshing={isRefreshing}
-                refreshCooldownSeconds={refreshCooldownSeconds}
-                settings={settings}
-                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                onNavigateToStop={() => setSettingsOpen(false)}
-                onUpdateSetting={updateSetting}
-              />
-            )}
-          </>
+          <div className="loading">Loading...</div>
         ) : noData ? (
-          <>
-            <div className="loading">{noDataMessage}</div>
-            {showSettingsPanel && (
-              <SettingsPanel
-                inline
-                onRefresh={() => void fetchBusData({ force: true })}
-                refreshLocked={refreshLocked}
-                isRefreshing={isRefreshing}
-                refreshCooldownSeconds={refreshCooldownSeconds}
-                settings={settings}
-                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                onNavigateToStop={() => setSettingsOpen(false)}
-                onUpdateSetting={updateSetting}
-              />
-            )}
-          </>
+          <div className="loading">{noDataMessage}</div>
         ) : (
           <>
             {topCard && (
@@ -339,45 +285,35 @@ export default function StopPage({ initialData = null }: StopPageProps) {
               </div>
             )}
             <div className="cards__list">
-              {!settingsOpen &&
-                lowerCards.map((card) => (
-                  <div key={card.id} className={getCardShellClassName(card.id)}>
-                    <BusCard
-                      arrival={card.arrival}
-                      route={card.route}
-                      showMinSuffix={settings.showMinSuffix}
-                      showRouteName={settings.showRouteName}
-                      showStopsAway={settings.showStopsAway}
-                      hideVehicleStatusDot={isStale}
-                    />
-                  </div>
-                ))}
-              {showSettingsPanel && (
-                <>
-                  <SettingsPanel
-                    inline
-                    onRefresh={() => void fetchBusData({ force: true })}
-                    refreshLocked={refreshLocked}
-                    isRefreshing={isRefreshing}
-                    refreshCooldownSeconds={refreshCooldownSeconds}
-                    settings={settings}
-                    tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-                    onNavigateToStop={() => setSettingsOpen(false)}
-                    onUpdateSetting={updateSetting}
+              {lowerCards.map((card) => (
+                <div key={card.id} className={getCardShellClassName(card.id)}>
+                  <BusCard
+                    arrival={card.arrival}
+                    route={card.route}
+                    showMinSuffix={settings.showMinSuffix}
+                    showRouteName={settings.showRouteName}
+                    showStopsAway={settings.showStopsAway}
+                    hideVehicleStatusDot={isStale}
                   />
-                  {hasHiddenCards && (
-                    <p
-                      className="settings-hidden-cue"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      Additional buses hidden while settings is open.
-                    </p>
-                  )}
-                </>
-              )}
+                </div>
+              ))}
             </div>
           </>
+        )}
+        {showSettingsPanel && (
+          <div className="settings-sheet-layer">
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onRefresh={() => void fetchBusData({ force: true })}
+              refreshLocked={refreshLocked}
+              isRefreshing={isRefreshing}
+              refreshCooldownSeconds={refreshCooldownSeconds}
+              settings={settings}
+              tutorialHighlightsStopInput={tutorialHighlightsStopInput}
+              onNavigateToStop={() => setSettingsOpen(false)}
+              onUpdateSetting={updateSetting}
+            />
+          </div>
         )}
       </div>
 

@@ -71,12 +71,23 @@ interface BusCardProps {
   hideVehicleStatusDot?: boolean;
 }
 
-function compactStopsAwayLabel(stopsAway: string): string {
-  const match = stopsAway.trim().match(/^(\d+)\s+stop(s)?\s+away$/i);
-  if (!match) return stopsAway;
-  const count = match[1];
-  const pluralSuffix = match[2] ? "s" : "";
-  return `~${count} stop${pluralSuffix}`;
+function splitStopsAwayLabel(stopsAway: string): {
+  count: string | null;
+  label: string;
+} {
+  const trimmed = stopsAway.trim();
+  const match = trimmed.match(/^(\d+)\s+(stop)(s)?(?:\s+away)?$/i);
+  if (!match) {
+    return {
+      count: null,
+      label: trimmed,
+    };
+  }
+
+  return {
+    count: match[1],
+    label: `${match[2].toLowerCase()}${match[3] ?? ""}`,
+  };
 }
 
 export default function BusCard({
@@ -90,8 +101,8 @@ export default function BusCard({
   const rowRef = useRef<HTMLDivElement | null>(null);
   const routeRef = useRef<HTMLSpanElement | null>(null);
   const minutesRef = useRef<HTMLSpanElement | null>(null);
-  const fullStopsMeasureRef = useRef<HTMLSpanElement | null>(null);
-  const [useCompactStopsAway, setUseCompactStopsAway] = useState(false);
+  const inlineStopsMeasureRef = useRef<HTMLSpanElement | null>(null);
+  const [showInlineStopsAway, setShowInlineStopsAway] = useState(false);
   const darkMode =
     typeof document !== "undefined" &&
     document.documentElement.classList.contains("dark");
@@ -108,7 +119,7 @@ export default function BusCard({
     .replace(/\s*minutes?/, "")
     .replace(/approaching/i, "now");
   const showNowLabel = rawMinutes === "now";
-  const compactStopsAway = compactStopsAwayLabel(arrival.stopsAway);
+  const stopsAway = splitStopsAwayLabel(arrival.stopsAway);
   const isApproaching =
     arrival.minutesNum === 0 || /approaching/i.test(arrival.minutes);
   const hasLiveVehicle = arrival.vehicleId.trim().length > 0;
@@ -128,77 +139,119 @@ export default function BusCard({
 
   useLayoutEffect(() => {
     if (!showStopsAway || !arrival.stopsAway) {
-      setUseCompactStopsAway(false);
       return;
     }
 
-    const measureOverflow = () => {
+    const measureInlineFit = () => {
       const row = rowRef.current;
       const minutes = minutesRef.current;
-      const fullStopsMeasure = fullStopsMeasureRef.current;
-      if (!row || !minutes || !fullStopsMeasure) return;
+      const inlineStopsMeasure = inlineStopsMeasureRef.current;
+      if (!row || !minutes || !inlineStopsMeasure) return;
 
       const routeWidth = showRouteName ? (routeRef.current?.scrollWidth ?? 0) : 0;
-      const minutesWidth = minutes.scrollWidth;
-      const stopsWidth = fullStopsMeasure.scrollWidth;
-      const gap = Number.parseFloat(getComputedStyle(row).columnGap || getComputedStyle(row).gap || "0") || 0;
-      const visibleItems = 1 + (showRouteName ? 1 : 0) + 1;
-      const totalNeededWidth = routeWidth + minutesWidth + stopsWidth + gap * (visibleItems - 1);
+      const minutesChildren = Array.from(minutes.children) as HTMLElement[];
+      const minutesWidth = minutesChildren.reduce((sum, child) => sum + child.scrollWidth, 0)
+        + Math.max(0, minutesChildren.length - 1) * (Number.parseFloat(getComputedStyle(minutes).gap || "0") || 0);
+      const stopsWidth = inlineStopsMeasure.scrollWidth;
+      const gapStyle = getComputedStyle(row);
+      const gap =
+        Number.parseFloat(gapStyle.columnGap || gapStyle.gap || "0") || 0;
+      const visibleItems = (showRouteName ? 1 : 0) + 1 + 1;
+      const totalNeededWidth =
+        routeWidth + minutesWidth + stopsWidth + gap * (visibleItems - 1);
 
-      setUseCompactStopsAway(totalNeededWidth > row.clientWidth);
+      setShowInlineStopsAway(totalNeededWidth <= row.clientWidth);
     };
 
-    measureOverflow();
+    measureInlineFit();
 
     const row = rowRef.current;
     if (!row || typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", measureOverflow);
-      return () => window.removeEventListener("resize", measureOverflow);
+      window.addEventListener("resize", measureInlineFit);
+      return () => window.removeEventListener("resize", measureInlineFit);
     }
 
-    const observer = new ResizeObserver(measureOverflow);
+    const observer = new ResizeObserver(measureInlineFit);
     observer.observe(row);
     return () => observer.disconnect();
-  }, [arrival.stopsAway, showRouteName, showStopsAway]);
-
-  const stopsAwayLabel = useCompactStopsAway ? compactStopsAway : arrival.stopsAway;
+  }, [
+    arrival.minutes,
+    arrival.stopsAway,
+    showMinSuffix,
+    showRouteName,
+    showStopsAway,
+  ]);
 
   return (
     <div className="bus-card" onClick={handleCardClick}>
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
-      <div className="bus-card__row" ref={rowRef}>
-        {showRouteName && (
-          <span className="bus-card__route" style={{ color }} ref={routeRef}>
-            {routeName}
-          </span>
-        )}
-        <span
-          className={`bus-card__minutes${showNowLabel ? " bus-card__minutes--now" : ""}`}
-          ref={minutesRef}
-        >
-          <span className="bus-card__minutes-value">{rawMinutes}</span>
-          {!showNowLabel && showMinSuffix && (
-            <span className="bus-card__minutes-suffix">min</span>
+      <div className="bus-card__row">
+        <div className="bus-card__primary-row" ref={rowRef}>
+          {showRouteName && (
+            <span className="bus-card__route" style={{ color }} ref={routeRef}>
+              {routeName}
+            </span>
           )}
-        </span>
-        {showStopsAway && arrival.stopsAway && (
-          <>
-            <span className="bus-card__stops-away">{stopsAwayLabel}</span>
+          <span
+            className={`bus-card__minutes${showNowLabel ? " bus-card__minutes--now" : ""}`}
+            ref={minutesRef}
+          >
+            <span className="bus-card__minutes-value">{rawMinutes}</span>
+            {!showNowLabel && showMinSuffix && (
+              <span className="bus-card__minutes-suffix">min</span>
+            )}
+          </span>
+          {showStopsAway && arrival.stopsAway && showInlineStopsAway && (
+            <span className="bus-card__stops-away bus-card__stops-away--inline" aria-label={arrival.stopsAway}>
+              {stopsAway.count ? (
+                <>
+                  <span className="bus-card__stops-away-count">{stopsAway.count}</span>
+                  <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                </>
+              ) : (
+                <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+              )}
+            </span>
+          )}
+          {!hideVehicleStatusDot && !showStopsAway && (
+            <span
+              className={vehicleDotClassName}
+              aria-label={vehicleDotLabel}
+              title={vehicleDotLabel}
+            />
+          )}
+          {showStopsAway && arrival.stopsAway && (
             <span
               aria-hidden="true"
-              className="bus-card__stops-away bus-card__stops-away--measure"
-              ref={fullStopsMeasureRef}
+              className="bus-card__stops-away bus-card__stops-away--inline bus-card__stops-away--measure"
+              ref={inlineStopsMeasureRef}
             >
-              {arrival.stopsAway}
+              {stopsAway.count ? (
+                <>
+                  <span className="bus-card__stops-away-count">{stopsAway.count}</span>
+                  <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                </>
+              ) : (
+                <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+              )}
             </span>
-          </>
-        )}
-        {!hideVehicleStatusDot && !showStopsAway && (
-          <span
-            className={vehicleDotClassName}
-            aria-label={vehicleDotLabel}
-            title={vehicleDotLabel}
-          />
+          )}
+        </div>
+        {showStopsAway && arrival.stopsAway && !showInlineStopsAway && (
+          <div
+            className={`bus-card__meta-row${showRouteName ? "" : " bus-card__meta-row--no-route"}`}
+          >
+            {stopsAway.count ? (
+              <span className="bus-card__stops-away bus-card__stops-away--stacked" aria-label={arrival.stopsAway}>
+                <span className="bus-card__stops-away-count">{stopsAway.count}</span>
+                <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+              </span>
+            ) : (
+              <span className="bus-card__stops-away bus-card__stops-away--stacked bus-card__stops-away--text-only">
+                {stopsAway.label}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
