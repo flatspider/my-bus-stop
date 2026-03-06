@@ -1,4 +1,5 @@
 import { config } from "./config.ts"
+import { getStopByCode } from "./stopsIndex.ts"
 import type { BusRoute, StopData } from "./types.ts"
 const SIRI_DEBUG = process.env.SIRI_DEBUG === "1"
 
@@ -64,6 +65,13 @@ function parseStopName(visits: MonitoredStopVisit[]): string {
     }
   }
   return ""
+}
+
+function resolveStopName(stopCode: string, visits: MonitoredStopVisit[]): string {
+  const liveStopName = parseStopName(visits)
+  if (liveStopName) return liveStopName
+
+  return getStopByCode(stopCode)?.name ?? ""
 }
 
 interface SiriResponse {
@@ -161,7 +169,7 @@ export async function fetchSiri(stopCode: string): Promise<StopData> {
   const delivery = getStopMonitoringDelivery(data)
   const visits = delivery?.MonitoredStopVisit ?? []
   logSiriShape(stopCode, data, visits)
-  const stopName = parseStopName(visits)
+  const stopName = resolveStopName(stopCode, visits)
   if (SIRI_DEBUG) console.log(`[SIRI_DEBUG] parsed stopName="${stopName}"`)
 
   // Group by route + direction
