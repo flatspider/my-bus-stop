@@ -329,7 +329,7 @@ export default function StopPage() {
                 role="status"
                 aria-live="polite"
               >
-                Click to close
+                Tap to close
               </span>
             )}
             <button
