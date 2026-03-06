@@ -1,13 +1,14 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { normalizeVehicleId } from "./utils.ts"
-import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry, GtfsOnlyTrip } from "./types.ts"
+import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry, GtfsOnlyTrip, CorridorSnapshot, CorridorStopSiri } from "./types.ts"
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data")
 const LOG_PATH = path.join(DATA_DIR, "comparison-log.md")
 const JSONL_PATH = path.join(DATA_DIR, "snapshots.jsonl")
+const CORRIDOR_JSONL_PATH = path.join(DATA_DIR, "corridor-snapshots.jsonl")
 
-export { JSONL_PATH }
+export { JSONL_PATH, CORRIDOR_JSONL_PATH }
 
 const ETA_THRESHOLD = 20
 const STALE_THRESHOLD_S = 90
@@ -208,6 +209,51 @@ Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-tim
     gtfsOnlyTrips,
   }
   await appendFile(JSONL_PATH, JSON.stringify(snapshot) + "\n", "utf-8")
+}
+
+export async function logCorridorSnapshot(
+  corridorStops: { before: string; primary: string; after: string },
+  siriResults: { stopCode: string; role: "before" | "primary" | "after"; data: StopData }[],
+  primaryArrivals: GtfsRtArrival[],
+  tripSummaries: GtfsRtTripSummary[],
+  vehiclePositions: Map<string, VehiclePositionData>,
+): Promise<void> {
+  const timestamp = new Date().toISOString()
+
+  const siriStops: CorridorStopSiri[] = siriResults.map((s) => ({
+    stopCode: s.stopCode,
+    role: s.role,
+    vehicles: s.data.routes.flatMap((r) =>
+      r.arrivals.map((a) => ({
+        vehicleId: normalizeVehicleId(a.vehicleId),
+        route: r.route,
+        etaMinutes: a.minutesNum === 999 ? null : a.minutesNum,
+        stopsAway: a.stopsAway,
+      }))
+    ),
+  }))
+
+  const snapshot: CorridorSnapshot = {
+    timestamp,
+    corridor: corridorStops,
+    siriStops,
+    gtfsArrivals: primaryArrivals,
+    tripSummaries: tripSummaries.map((t) => ({
+      tripId: t.tripId,
+      routeId: t.routeId,
+      vehicleId: t.vehicleId,
+      isFallbackSuspected: t.isFallbackSuspected,
+    })),
+    vehiclePositions: [...vehiclePositions.values()].map((vp) => ({
+      vehicleId: vp.vehicleId,
+      latitude: vp.latitude,
+      longitude: vp.longitude,
+      timestamp: vp.timestamp,
+    })),
+  }
+
+  await mkdir(path.dirname(CORRIDOR_JSONL_PATH), { recursive: true })
+  await appendFile(CORRIDOR_JSONL_PATH, JSON.stringify(snapshot) + "\n", "utf-8")
 }
 
 function extractRouteName(gtfsRouteId: string): string {

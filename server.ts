@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { config } from "./server/config.ts";
 import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
-import { compareAndLog, JSONL_PATH } from "./server/compare.ts";
+import { compareAndLog, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 import { getStopMiniMap } from "./server/miniMap.ts";
@@ -179,7 +179,12 @@ app.get("/{*splat}", (_req, res) => {
 });
 
 // --- Background Polling ---
-const POLL_STOP = "402854";
+// Corridor: stop before → primary stop → stop after (southbound 3rd Ave)
+const CORRIDOR = {
+  before: "402853",   // E 24 St / Lexington Ave
+  primary: "402854",  // 3 Av / E 23 St (Conor's stop)
+  after: "403772",    // 3 Av / E 20 St
+};
 const POLL_INTERVAL_MS = 60_000; // 1 minute
 let pollInterval: NodeJS.Timeout | null = null;
 
@@ -187,15 +192,38 @@ async function pollOnce() {
   if (!config.apiKey) return;
 
   try {
-    const siriData = await fetchSiri(POLL_STOP);
-    const routeNames = siriData.routes.map((r) => r.route);
-    const [stopArrivals, tripSummaries, vehiclePositions] = await Promise.all([
-      fetchGtfsRtForStop(POLL_STOP),
+    // Fetch SIRI for all 3 corridor stops in parallel
+    const [siriBefore, siriPrimary, siriAfter] = await Promise.all([
+      fetchSiri(CORRIDOR.before),
+      fetchSiri(CORRIDOR.primary),
+      fetchSiri(CORRIDOR.after),
+    ]);
+
+    // GTFS-RT data is route-wide, only need to fetch once using primary stop's routes
+    const routeNames = siriPrimary.routes.map((r) => r.route);
+    const [primaryArrivals, tripSummaries, vehiclePositions] = await Promise.all([
+      fetchGtfsRtForStop(CORRIDOR.primary),
       fetchGtfsRtTripSummaries(routeNames),
       fetchVehiclePositions(),
     ]);
-    await compareAndLog(POLL_STOP, siriData, stopArrivals, tripSummaries, vehiclePositions);
-    console.log(`[poll] Snapshot logged at ${new Date().toISOString()}`);
+
+    // Write legacy single-stop snapshot (keeps existing analysis working)
+    await compareAndLog(CORRIDOR.primary, siriPrimary, primaryArrivals, tripSummaries, vehiclePositions);
+
+    // Write new corridor snapshot
+    await logCorridorSnapshot(
+      CORRIDOR,
+      [
+        { stopCode: CORRIDOR.before, role: "before", data: siriBefore },
+        { stopCode: CORRIDOR.primary, role: "primary", data: siriPrimary },
+        { stopCode: CORRIDOR.after, role: "after", data: siriAfter },
+      ],
+      primaryArrivals,
+      tripSummaries,
+      vehiclePositions,
+    );
+
+    console.log(`[poll] Corridor snapshot logged at ${new Date().toISOString()}`);
   } catch (err) {
     console.error("[poll] Error:", err);
   }
@@ -212,7 +240,7 @@ const server = app.listen(PORT, () => {
     });
 
   if (config.mode === "compare") {
-    console.log(`[poll] Starting background polling every ${POLL_INTERVAL_MS / 1000}s for stop ${POLL_STOP}`);
+    console.log(`[poll] Starting corridor polling every ${POLL_INTERVAL_MS / 1000}s — stops ${CORRIDOR.before} → ${CORRIDOR.primary} → ${CORRIDOR.after}`);
     pollOnce(); // immediate first poll
     pollInterval = setInterval(pollOnce, POLL_INTERVAL_MS);
   }

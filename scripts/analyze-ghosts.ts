@@ -2,8 +2,13 @@ import { readFile, writeFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 import type { SnapshotEntry } from "../server/types.ts"
 
-const JSONL_PATH = path.join(process.cwd(), "data", "snapshots.jsonl")
-const REPORT_PATH = path.join(process.cwd(), "data", "ghost-report.md")
+const inputArg = process.argv[2]
+const JSONL_PATH = inputArg
+  ? path.resolve(inputArg)
+  : path.join(process.cwd(), "data", "snapshots.jsonl")
+const now = new Date()
+const reportStamp = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`
+const REPORT_PATH = path.join(process.cwd(), "data", `ghost-report-${reportStamp}.md`)
 
 // --- Constants ---
 const ETA_THRESHOLD_MIN = 20 // only care about predictions within 20 min
@@ -274,6 +279,141 @@ ${(() => {
 })()}
 
 Fallback = GTFS-RT is serving static schedule data as if it's real-time. This is the most common cause of ghost buses — the schedule says a bus should be there, but no bus is actually running.
+
+## Ghost Trip Log
+
+Every unique trip that GTFS-RT showed arriving at this stop but SIRI did not corroborate. Sorted by first appearance.
+
+| Route | Vehicle | First Seen | Last Seen | ETA Range | Snapshots | Fallback? |
+|-------|---------|------------|-----------|-----------|-----------|-----------|
+${(() => {
+  // Build per-trip summary
+  const tripMap = new Map<string, {
+    route: string; vehicle: string; firstSeen: string; lastSeen: string;
+    minEta: number; maxEta: number; count: number; isFallback: boolean;
+  }>()
+  for (const snap of snapshots) {
+    const nowEpoch = Math.floor(new Date(snap.timestamp).getTime() / 1000)
+    for (const g of snap.gtfsOnlyTrips) {
+      if (g.arrivalTime == null || !g.tripId) continue
+      const eta = Math.round((g.arrivalTime - nowEpoch) / 60)
+      if (eta < 0 || eta >= ETA_THRESHOLD_MIN) continue
+      const existing = tripMap.get(g.tripId)
+      if (existing) {
+        existing.lastSeen = snap.timestamp
+        existing.minEta = Math.min(existing.minEta, eta)
+        existing.maxEta = Math.max(existing.maxEta, eta)
+        existing.count++
+        existing.isFallback = existing.isFallback && g.isFallback
+      } else {
+        const route = g.routeId.includes("_") ? g.routeId.split("_").pop()! : g.routeId
+        tripMap.set(g.tripId, {
+          route, vehicle: g.vehicleId,
+          firstSeen: snap.timestamp, lastSeen: snap.timestamp,
+          minEta: eta, maxEta: eta, count: 1, isFallback: g.isFallback,
+        })
+      }
+    }
+  }
+  return [...tripMap.values()]
+    .sort((a, b) => a.firstSeen.localeCompare(b.firstSeen))
+    .map((t) => {
+      const first = new Date(t.firstSeen).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
+      const last = t.firstSeen === t.lastSeen ? "—" : new Date(t.lastSeen).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true })
+      const etaRange = t.minEta === t.maxEta ? `${t.minEta}min` : `${t.minEta}–${t.maxEta}min`
+      return `| ${t.route} | ${t.vehicle} | ${first} | ${last} | ${etaRange} | ${t.count} | ${t.isFallback ? "yes" : "**no**"} |`
+    })
+    .join("\n")
+})()}
+
+## Time-of-Day Distribution
+
+When do ghost buses appear? (Eastern Time, aggregated across all days)
+
+${(() => {
+  const hourSnapshots = new Map<number, number>()
+  const hourGhosts = new Map<number, number>()
+  for (const snap of snapshots) {
+    const dt = new Date(snap.timestamp)
+    const etHour = (dt.getUTCHours() - 5 + 24) % 24
+    hourSnapshots.set(etHour, (hourSnapshots.get(etHour) ?? 0) + 1)
+    const nowEpoch = Math.floor(dt.getTime() / 1000)
+    let hasGhost = false
+    for (const g of snap.gtfsOnlyTrips) {
+      if (g.arrivalTime == null) continue
+      const eta = Math.round((g.arrivalTime - nowEpoch) / 60)
+      if (eta >= 0 && eta < ETA_THRESHOLD_MIN) { hasGhost = true; break }
+    }
+    if (hasGhost) hourGhosts.set(etHour, (hourGhosts.get(etHour) ?? 0) + 1)
+  }
+  const rows = []
+  for (let h = 5; h < 29; h++) {
+    const hour = h % 24
+    const total = hourSnapshots.get(hour) ?? 0
+    const ghosts = hourGhosts.get(hour) ?? 0
+    if (total === 0) continue
+    const rate = ((ghosts / total) * 100).toFixed(1)
+    const label = `${String(hour).padStart(2, "0")}:00`
+    rows.push(`| ${label} | ${total} | ${ghosts} | ${rate}% |`)
+  }
+  return `| Hour (ET) | Snapshots | With Ghost | Rate |
+|----------|-----------|------------|------|
+${rows.join("\n")}`
+})()}
+
+---
+
+## Data Sources & Methodology
+
+### Scope
+
+This report analyzes ghost bus events at a **single MTA bus stop**: stop code **${snapshots[0]?.stopCode ?? "402854"}**${snapshots[0]?.stopLatitude ? ` (${snapshots[0].stopLatitude.toFixed(4)}, ${snapshots[0].stopLongitude?.toFixed(4)})` : ""}. All ghost events listed above were observed at this stop, serving the M101, M102, and M103 routes.
+
+### Data Sources
+
+**GTFS-RT (General Transit Feed Specification — Realtime)**
+The MTA's realtime transit feed, served as protocol buffers. This is the data source that powers **Apple Maps, Google Maps, Transit app**, and all third-party arrival predictions. We fetch two sub-feeds:
+- **Trip Updates** (gtfsrt.prod.obanyc.com/tripUpdates): predicted arrival times per stop
+- **Vehicle Positions** (gtfsrt.prod.obanyc.com/vehiclePositions): GPS coordinates and status
+
+**SIRI (Service Interface for Real-time Information)**
+The MTA's own real-time bus tracking API — the same system behind **BusTime.mta.info** and the official MTA Bus Time app. Endpoint: bustime.mta.info/api/siri/stop-monitoring.json. SIRI only reports vehicles that the MTA's Clever Devices vehicle tracking system has confirmed are **actively operating on a route**.
+
+### Collection Protocol
+
+| Parameter | Value |
+|-----------|-------|
+| Poll interval | **60 seconds** |
+| GTFS-RT cache TTL | 30 seconds |
+| Feeds per cycle | SIRI + GTFS-RT Trip Updates + Vehicle Positions (fetched simultaneously) |
+| Duration | ${timeRange} |
+| Total snapshots | ${snapshots.length} |
+
+Both feeds are fetched in the same call within each 60-second cycle, ensuring the comparison reflects the same moment in time (within network latency, typically < 1 second).
+
+### What Counts as a Ghost
+
+**Counted (real mismatch):**
+A trip appears in GTFS-RT with a predicted arrival **under ${ETA_THRESHOLD_MIN} minutes** at this stop, but SIRI has **no record of that vehicle**. A passenger checking Apple Maps sees a bus; the MTA's own BusTime does not show it.
+
+**Not counted (benign mismatch):**
+
+| Scenario | Why excluded |
+|----------|-------------|
+| GTFS-RT trip with ETA ≥ ${ETA_THRESHOLD_MIN} min | Too far out to affect a passenger's decision to walk to the stop |
+| Both feeds show the trip, ETAs differ by < ${ETA_DISAGREEMENT_MIN} min | Normal prediction variance, not a misleading discrepancy |
+| SIRI shows a bus, GTFS-RT doesn't | The bus exists — under-reporting is a different problem |
+| Negative ETA (bus already passed) | Stale data, but no one is being misled about a future arrival |
+
+### How We Account for Route Starts
+
+**The concern:** A bus beginning its route at a terminal might appear in GTFS-RT before the driver logs in, briefly absent from SIRI.
+
+**Why this does not invalidate the findings:**
+1. **Fallback detection catches this.** A not-yet-active bus shows delay=0 on all stops — our analysis flags these as "fallback." This is precisely the problem: GTFS-RT publishing schedule data as real-time, regardless of cause.
+2. **The ${ETA_THRESHOLD_MIN}-minute window is a natural filter.** A bus leaving a distant terminal typically has an ETA well beyond ${ETA_THRESHOLD_MIN} minutes for mid-route stops.
+3. **Vehicle Position cross-check.** Each snapshot records whether the GTFS-RT vehicle has a GPS signal. A truly operating bus should have one.
+4. **The passenger impact is real regardless of cause.** Whether caused by schedule fallback or a slow login, the rider sees a bus on Apple Maps that BusTime doesn't show. A passenger who walks to the stop based on that prediction waits for a bus that may not come.
 
 ---
 

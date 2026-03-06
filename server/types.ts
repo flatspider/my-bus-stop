@@ -146,3 +146,24 @@ export interface SnapshotEntry {
   vehicles: SnapshotVehicle[]
   gtfsOnlyTrips: GtfsOnlyTrip[]
 }
+
+// --- Corridor (multi-stop) snapshot for ghost bus analysis ---
+
+export interface CorridorStopSiri {
+  stopCode: string
+  role: "before" | "primary" | "after"
+  vehicles: { vehicleId: string; route: string; etaMinutes: number | null; stopsAway: string }[]
+}
+
+export interface CorridorSnapshot {
+  timestamp: string
+  corridor: {
+    before: string   // stop code
+    primary: string  // stop code
+    after: string    // stop code
+  }
+  siriStops: CorridorStopSiri[]
+  gtfsArrivals: GtfsRtArrival[]  // GTFS-RT arrivals at the PRIMARY stop
+  tripSummaries: { tripId: string; routeId: string; vehicleId: string; isFallbackSuspected: boolean }[]
+  vehiclePositions: { vehicleId: string; latitude: number; longitude: number; timestamp: number }[]
+}
