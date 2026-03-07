@@ -50,6 +50,18 @@ html.dark {
   box-sizing: border-box;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -610,6 +622,16 @@ body {
     box-shadow 0.25s;
 }
 
+.bus-card--action {
+  width: 100%;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
 .bus-card--empty {
   opacity: 0.4;
 }
@@ -819,6 +841,11 @@ html.dark .bus-card__minutes-suffix {
   gap: 6px;
   cursor: pointer;
   user-select: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
 }
 
 .status-dot--stale {

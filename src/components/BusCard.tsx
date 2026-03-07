@@ -90,6 +90,22 @@ function splitStopsAwayLabel(stopsAway: string): {
   };
 }
 
+function buildCardLabel(
+  route: string,
+  minutes: string,
+  stopsAway: string,
+  vehicleDotLabel: string,
+): string {
+  const parts = [`Route ${route}`, `arrives in ${minutes}`];
+  if (stopsAway) {
+    parts.push(stopsAway);
+  } else {
+    parts.push(vehicleDotLabel);
+  }
+  parts.push("Opens route details on MTA BusTime");
+  return parts.join(". ");
+}
+
 export default function BusCard({
   arrival,
   route,
@@ -136,6 +152,12 @@ export default function BusCard({
     : hasLiveVehicle
       ? "Live vehicle"
       : "Schedule fallback";
+  const cardLabel = buildCardLabel(
+    routeName,
+    showNowLabel ? "now" : `${rawMinutes} minutes`,
+    arrival.stopsAway,
+    vehicleDotLabel,
+  );
 
   useEffect(() => {
     if (!showStopsAway || !arrival.stopsAway) {
@@ -183,7 +205,12 @@ export default function BusCard({
   ]);
 
   return (
-    <div className="bus-card" onClick={handleCardClick}>
+    <button
+      type="button"
+      className="bus-card bus-card--action"
+      onClick={handleCardClick}
+      aria-label={cardLabel}
+    >
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
       <div className="bus-card__row">
         <div className="bus-card__primary-row" ref={rowRef}>
@@ -254,6 +281,6 @@ export default function BusCard({
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }

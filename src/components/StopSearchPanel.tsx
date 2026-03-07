@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { fetchNearbyStops, searchStops } from "../stopSearchApi";
 import { formatStopName } from "../formatStopName";
 import type { StopSearchResult } from "../types";
@@ -149,6 +149,7 @@ export default function StopSearchPanel({
   const [statusMessage, setStatusMessage] = useState("");
 
   const recents = useSyncExternalStore(subscribeToRecents, loadRecents, () => []);
+  const statusId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const nearbyAbortRef = useRef<AbortController | null>(null);
@@ -222,6 +223,20 @@ export default function StopSearchPanel({
     if (normalizedQuery) return searchResults.slice(0, MAX_VISIBLE_RESULTS);
     return dedupeResults(nearestStops, recents).slice(0, MAX_VISIBLE_RESULTS);
   }, [nearestStops, query, recents, searchResults]);
+  const liveStatusMessage = useMemo(() => {
+    if (statusMessage) return statusMessage;
+    if (query.trim()) {
+      if (dropdownResults.length === 0) return `No stop results for ${query.trim()}.`;
+      return `${dropdownResults.length} stop result${dropdownResults.length === 1 ? "" : "s"} available.`;
+    }
+    if (nearestStops.length > 0) {
+      return `${nearestStops.length} nearby stop${nearestStops.length === 1 ? "" : "s"} available.`;
+    }
+    if (recents.length > 0) {
+      return `${recents.length} recent stop${recents.length === 1 ? "" : "s"} available.`;
+    }
+    return "";
+  }, [dropdownResults.length, nearestStops.length, query, recents.length, statusMessage]);
 
   function handleSelect(stop: StopSearchResult) {
     saveRecents([
@@ -273,6 +288,8 @@ export default function StopSearchPanel({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           aria-label="Search stop or street"
+          aria-describedby={statusId}
+          aria-autocomplete="list"
         />
         <button
           type="button"
@@ -299,7 +316,6 @@ export default function StopSearchPanel({
 
       <div
         className="stop-search__dropdown"
-        role="listbox"
         aria-label="Stop search results"
       >
         {!query.trim() && locationState !== "granted" && (
@@ -445,6 +461,9 @@ export default function StopSearchPanel({
           </p>
         )}
       </div>
+      <p className="sr-only" id={statusId} role="status" aria-live="polite">
+        {liveStatusMessage}
+      </p>
     </>
   );
 }

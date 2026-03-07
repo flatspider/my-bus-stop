@@ -7,13 +7,19 @@ export default function StatusDot({ isStale, staleSeconds }: { isStale: boolean;
   if (!isStale) return null
 
   return (
-    <div className="status-dot-wrap" onClick={() => setExpanded(prev => !prev)}>
+    <button
+      type="button"
+      className="status-dot-wrap"
+      onClick={() => setExpanded(prev => !prev)}
+      aria-expanded={expanded}
+      aria-label={`Data is stale. Updated ${minutes} minute${minutes === 1 ? "" : "s"} ago.`}
+    >
       <span className="status-dot status-dot--stale" />
       {expanded && (
         <span className="status-dot__label">
           Updated {minutes}m ago
         </span>
       )}
-    </div>
+    </button>
   )
 }

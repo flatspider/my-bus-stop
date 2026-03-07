@@ -21,10 +21,19 @@ export default function StopSearchHeader({
 }: StopSearchHeaderProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const shouldRestoreFocusRef = useRef(false);
 
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  useEffect(() => {
+    if (!isExpanded && shouldRestoreFocusRef.current) {
+      shouldRestoreFocusRef.current = false;
+      triggerRef.current?.focus();
+    }
+  }, [isExpanded]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -32,12 +41,23 @@ export default function StopSearchHeader({
     function onPointerDown(event: MouseEvent) {
       if (!wrapperRef.current) return;
       if (!wrapperRef.current.contains(event.target as Node)) {
+        shouldRestoreFocusRef.current = true;
         setIsExpanded(false);
       }
     }
 
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      shouldRestoreFocusRef.current = true;
+      setIsExpanded(false);
+    }
+
     document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [isExpanded]);
 
   function handleOpenSearch() {
@@ -45,6 +65,7 @@ export default function StopSearchHeader({
   }
 
   function closeSearch() {
+    shouldRestoreFocusRef.current = true;
     setIsExpanded(false);
   }
 
@@ -59,6 +80,7 @@ export default function StopSearchHeader({
           showStopTitle={showStopTitle}
           statusNode={statusNode}
           onOpenSearch={handleOpenSearch}
+          ref={triggerRef}
         />
       ) : (
         <Suspense
