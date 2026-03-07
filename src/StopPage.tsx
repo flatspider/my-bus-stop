@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AUTO_REFRESH_INTERVAL_MS,
@@ -10,8 +10,6 @@ import { deriveArrivalCards } from "./arrivalCards";
 import { useArrivalCardTransition } from "./useArrivalCardTransition";
 import BusCard from "./components/BusCard";
 import StatusDot from "./components/StaleDataBanner";
-import SettingsPanel from "./components/SettingsPanel";
-import Tutorial from "./components/Tutorial";
 import StopSearchHeader from "./components/StopSearchHeader";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
@@ -24,6 +22,9 @@ interface StopPageProps {
   initialData?: InitialStopData | null;
 }
 
+const SettingsPanel = lazy(() => import("./components/SettingsPanel"));
+const Tutorial = lazy(() => import("./components/Tutorial"));
+
 export default function StopPage({ initialData = null }: StopPageProps) {
   const { stopCode } = useParams<{ stopCode: string }>();
   const location = useLocation();
@@ -33,16 +34,23 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
   const matchedInitialData =
     initialData?.stopCode === normalizedStopCode ? initialData : null;
+  const hasPartialInitialData = matchedInitialData?.isPartial ?? false;
   const [stopName, setStopName] = useState(() => matchedInitialData?.stopName ?? "");
   const [routes, setRoutes] = useState<BusRoute[]>(() => matchedInitialData?.routes ?? []);
-  const [loading, setLoading] = useState(() => matchedInitialData === null);
+  const [loading, setLoading] = useState(
+    () => matchedInitialData === null || hasPartialInitialData,
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [nextAllowedRefreshAt, setNextAllowedRefreshAt] = useState(() =>
-    matchedInitialData ? matchedInitialData.fetchedAt + MIN_REQUEST_GAP_MS : 0,
+    matchedInitialData && !matchedInitialData.isPartial
+      ? matchedInitialData.fetchedAt + MIN_REQUEST_GAP_MS
+      : 0,
   );
   const [nowMs, setNowMs] = useState(Date.now());
   const [error, setError] = useState<string | null>(() => matchedInitialData?.error ?? null);
-  const [lastFetchAtMs, setLastFetchAtMs] = useState(() => matchedInitialData?.fetchedAt ?? 0);
+  const [lastFetchAtMs, setLastFetchAtMs] = useState(
+    () => (matchedInitialData && !matchedInitialData.isPartial ? matchedInitialData.fetchedAt : 0),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -57,7 +65,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const isFirstRouteRenderRef = useRef(true);
   const { settings, updateSetting } = useSettings();
 
-  if (matchedInitialData) {
+  if (matchedInitialData && !matchedInitialData.isPartial) {
     lastRequestAtByStopRef.current[normalizedStopCode] = matchedInitialData.fetchedAt;
   }
 
@@ -140,7 +148,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   }, []);
 
   useEffect(() => {
-    if (!matchedInitialData) {
+    if (!matchedInitialData || matchedInitialData.isPartial) {
       void fetchBusData();
     }
     const interval = window.setInterval(() => {
@@ -301,33 +309,37 @@ export default function StopPage({ initialData = null }: StopPageProps) {
           </>
         )}
         {showSettingsPanel && (
-          <div className="settings-sheet-layer">
-            <SettingsPanel
-              onClose={() => setSettingsOpen(false)}
-              onRefresh={() => void fetchBusData({ force: true })}
-              refreshLocked={refreshLocked}
-              isRefreshing={isRefreshing}
-              refreshCooldownSeconds={refreshCooldownSeconds}
-              settings={settings}
-              tutorialHighlightsStopInput={tutorialHighlightsStopInput}
-              onNavigateToStop={() => setSettingsOpen(false)}
-              onUpdateSetting={updateSetting}
-            />
-          </div>
+          <Suspense fallback={null}>
+            <div className="settings-sheet-layer">
+              <SettingsPanel
+                onClose={() => setSettingsOpen(false)}
+                onRefresh={() => void fetchBusData({ force: true })}
+                refreshLocked={refreshLocked}
+                isRefreshing={isRefreshing}
+                refreshCooldownSeconds={refreshCooldownSeconds}
+                settings={settings}
+                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
+                onNavigateToStop={() => setSettingsOpen(false)}
+                onUpdateSetting={updateSetting}
+              />
+            </div>
+          </Suspense>
         )}
       </div>
 
       {isHydrated && showTutorial && !loading && arrivalCards.length > 0 && (
-        <Tutorial
-          onClose={() => {
-            localStorage.setItem("tutorialComplete", "true");
-            setShowTutorial(false);
-            setTutorialStep(0);
-            setSettingsOpen(false);
-          }}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onStepChange={setTutorialStep}
-        />
+        <Suspense fallback={null}>
+          <Tutorial
+            onClose={() => {
+              localStorage.setItem("tutorialComplete", "true");
+              setShowTutorial(false);
+              setTutorialStep(0);
+              setSettingsOpen(false);
+            }}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onStepChange={setTutorialStep}
+          />
+        </Suspense>
       )}
     </div>
   );

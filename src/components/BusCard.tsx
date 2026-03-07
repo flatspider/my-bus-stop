@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BusArrival } from "../types";
 
 const ROUTE_COLORS: Record<string, string> = {
@@ -137,7 +137,7 @@ export default function BusCard({
       ? "Live vehicle"
       : "Schedule fallback";
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!showStopsAway || !arrival.stopsAway) {
       return;
     }

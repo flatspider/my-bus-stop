@@ -6,6 +6,7 @@ export interface InitialStopData {
   routes: BusRoute[];
   fetchedAt: number;
   error: string | null;
+  isPartial: boolean;
 }
 
 declare global {

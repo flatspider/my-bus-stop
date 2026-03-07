@@ -353,6 +353,11 @@ export function getStopsIndexCount(): number {
   return cachedStopsV2.length
 }
 
+export function getStopByCode(stopCode: string): SearchIndexedStop | null {
+  if (!/^\d{6}$/.test(stopCode)) return null
+  return cachedStopsV2.find((stop) => stop.code === stopCode) ?? null
+}
+
 function postingsForToken(index: RuntimeSearchIndex, queryToken: string): number[] {
   const exact = index.tokenPostings.get(queryToken)
   if (exact && exact.length > 0) return exact

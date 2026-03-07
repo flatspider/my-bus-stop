@@ -6,7 +6,8 @@ import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
-import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
+import { computeUnhappiestStop, loadGapIndex } from "./server/unhappy.ts";
+import { getStopByCode, getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./src/stopConfig.ts";
 import type { InitialStopData } from "./src/initialStopData.ts";
 
@@ -19,6 +20,7 @@ const DIST_DIR = path.join(__dirname, "dist");
 const CLIENT_INDEX_PATH = path.join(DIST_DIR, "index.html");
 const CLIENT_MANIFEST_PATH = path.join(DIST_DIR, ".vite", "manifest.json");
 const SERVER_ENTRY_PATH = path.join(DIST_DIR, "server", "entry-server.js");
+const SSR_UPSTREAM_BUDGET_MS = 350;
 
 console.log(`BusWatch mode: ${config.mode}`);
 
@@ -102,26 +104,43 @@ async function buildSsrDocument(
 }
 
 async function fetchInitialStopData(stopCode: string): Promise<InitialStopData> {
-  const fetchedAt = Date.now();
+  const indexedStopName = getStopByCode(stopCode)?.name ?? "";
+
+  const shellData: InitialStopData = {
+    stopCode,
+    stopName: indexedStopName,
+    routes: [],
+    fetchedAt: 0,
+    error: null,
+    isPartial: true,
+  };
 
   try {
-    const data = await fetchSiri(stopCode);
+    const data = await Promise.race([
+      fetchSiri(stopCode),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("SSR_BUSTIME_TIMEOUT")), SSR_UPSTREAM_BUDGET_MS);
+      }),
+    ]);
+
     return {
       stopCode,
-      stopName: data.stopName,
+      stopName: data.stopName || indexedStopName,
       routes: data.routes,
-      fetchedAt,
+      fetchedAt: Date.now(),
       error: null,
+      isPartial: false,
     };
   } catch (err) {
+    if (err instanceof Error && err.message === "SSR_BUSTIME_TIMEOUT") {
+      console.warn(
+        `[ssr] Bustime fetch for ${stopCode} exceeded ${SSR_UPSTREAM_BUDGET_MS}ms; rendering stop shell.`,
+      );
+      return shellData;
+    }
+
     console.error("[ssr] Failed to fetch stop data:", err);
-    return {
-      stopCode,
-      stopName: "",
-      routes: [],
-      fetchedAt,
-      error: "Unable to fetch arrivals right now.",
-    };
+    return shellData;
   }
 }
 
@@ -246,6 +265,20 @@ app.get("/stop/:stopCode", async (req, res, next) => {
   } catch (err) {
     console.error("[ssr] Document render failed:", err);
     next(err);
+  }
+});
+
+app.get("/api/unhappy", async (_req, res) => {
+  try {
+    const result = await computeUnhappiestStop();
+    if (!result) {
+      res.status(404).json({ error: "No active unhappy stop found" });
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    console.error("[unhappy] Error:", err);
+    res.status(500).json({ error: "Failed to compute unhappiest stop" });
   }
 });
 
@@ -395,6 +428,9 @@ const server = app.listen(PORT, () => {
     .catch((err) => {
       console.error("[stops] Startup load failed:", err);
     });
+  loadGapIndex().catch((err) => {
+    console.error("[unhappy] Gap index startup load failed:", err);
+  });
 
   if (config.mode === "compare") {
     console.log(`[poll] Starting corridor polling every ${POLL_INTERVAL_MS / 1000}s — stops ${CORRIDOR.before} → ${CORRIDOR.primary} → ${CORRIDOR.after}`);
