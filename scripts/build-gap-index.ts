@@ -304,7 +304,7 @@ async function main() {
     dayTypes: schedulesByDayType,
   }
 
-  await writeFile(outputPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf-8")
+  await writeFile(outputPath, JSON.stringify(artifact), "utf-8")
 
   console.log(`[build-gap-index] Wrote ${outputPath}`)
   for (const dt of ["weekday", "saturday", "sunday"] as DayType[]) {
