@@ -389,7 +389,6 @@ async function pollOnce() {
     ]);
 
     // GTFS-RT data is route-wide, only need to fetch once using primary stop's routes
-    const routeNames = siriPrimary.routes.map((r) => r.route);
     const [primaryArrivals, vehiclePositions] = await Promise.all([
       fetchGtfsRtForStop(CORRIDOR.primary),
       fetchVehiclePositions(),
