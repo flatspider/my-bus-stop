@@ -6,6 +6,7 @@ import { fetchSiri } from "./server/parseSiri.ts";
 import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
+import { computeUnhappiestStop, loadGapIndex } from "./server/unhappy.ts";
 import { getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./src/stopConfig.ts";
 import type { InitialStopData } from "./src/initialStopData.ts";
@@ -249,6 +250,20 @@ app.get("/stop/:stopCode", async (req, res, next) => {
   }
 });
 
+app.get("/api/unhappy", async (_req, res) => {
+  try {
+    const result = await computeUnhappiestStop();
+    if (!result) {
+      res.status(404).json({ error: "No active unhappy stop found" });
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    console.error("[unhappy] Error:", err);
+    res.status(500).json({ error: "Failed to compute unhappiest stop" });
+  }
+});
+
 if (!isProduction) {
   app.post("/api/stops/reload", async (_req, res) => {
     await loadStopsIndex();
@@ -395,6 +410,9 @@ const server = app.listen(PORT, () => {
     .catch((err) => {
       console.error("[stops] Startup load failed:", err);
     });
+  loadGapIndex().catch((err) => {
+    console.error("[unhappy] Gap index startup load failed:", err);
+  });
 
   if (config.mode === "compare") {
     console.log(`[poll] Starting corridor polling every ${POLL_INTERVAL_MS / 1000}s — stops ${CORRIDOR.before} → ${CORRIDOR.primary} → ${CORRIDOR.after}`);

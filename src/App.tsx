@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, StaticRouter } from "react-router-dom";
 import StopPage from "./StopPage";
+import UnhappyPage from "./UnhappyPage";
 import { DEFAULT_STOP_CODE } from "./stopConfig";
 import type { InitialStopData } from "./initialStopData";
 
@@ -12,6 +13,7 @@ function AppRoutes({ initialStopData }: { initialStopData?: InitialStopData | nu
   return (
     <Routes>
       <Route path="/" element={<Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />} />
+      <Route path="/unhappy" element={<UnhappyPage />} />
       <Route
         path="/stop/:stopCode"
         element={<StopPage initialData={initialStopData ?? null} />}
