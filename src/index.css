@@ -639,6 +639,12 @@ html.dark .bus-card--settings {
   );
 }
 
+@media (min-width: 601px) {
+  .bus-card--settings {
+    width: min(100%, 432px);
+  }
+}
+
 .cards__list,
 .cards__lower {
   position: relative;
