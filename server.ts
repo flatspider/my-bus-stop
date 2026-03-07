@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { config } from "./server/config.ts";
 import { fetchSiri } from "./server/parseSiri.ts";
-import { fetchGtfsRtForStop, fetchGtfsRtTripSummaries, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
+import { fetchGtfsRtForStop, fetchVehiclePositions } from "./server/parseGtfsRt.ts";
 import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { computeUnhappiestStop, loadGapIndex } from "./server/unhappy.ts";
@@ -390,14 +390,13 @@ async function pollOnce() {
 
     // GTFS-RT data is route-wide, only need to fetch once using primary stop's routes
     const routeNames = siriPrimary.routes.map((r) => r.route);
-    const [primaryArrivals, tripSummaries, vehiclePositions] = await Promise.all([
+    const [primaryArrivals, vehiclePositions] = await Promise.all([
       fetchGtfsRtForStop(CORRIDOR.primary),
-      fetchGtfsRtTripSummaries(routeNames),
       fetchVehiclePositions(),
     ]);
 
     // Write legacy single-stop snapshot (keeps existing analysis working)
-    await compareAndLog(snapshotTimestamp, CORRIDOR.primary, siriPrimary, primaryArrivals, tripSummaries, vehiclePositions);
+    await compareAndLog(snapshotTimestamp, CORRIDOR.primary, siriPrimary, primaryArrivals, vehiclePositions);
 
     // Write new corridor snapshot
     await logCorridorSnapshot(
@@ -409,7 +408,6 @@ async function pollOnce() {
         { stopCode: CORRIDOR.after, role: "after", data: siriAfter },
       ],
       primaryArrivals,
-      tripSummaries,
       vehiclePositions,
     );
 

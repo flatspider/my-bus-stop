@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 import { normalizeVehicleId } from "./utils.ts"
-import type { StopData, GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData, SnapshotVehicle, SnapshotEntry, GtfsOnlyTrip, CorridorSnapshot, CorridorStopSiri } from "./types.ts"
+import type { StopData, GtfsRtArrival, VehiclePositionData, SnapshotVehicle, SnapshotEntry, GtfsOnlyTrip, CorridorSnapshot, CorridorStopSiri } from "./types.ts"
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data")
 const LOG_PATH = path.join(DATA_DIR, "comparison-log.md")
@@ -23,47 +23,12 @@ export async function compareAndLog(
   stopCode: string,
   siriData: StopData,
   stopArrivals: GtfsRtArrival[],
-  tripSummaries: GtfsRtTripSummary[],
   vehiclePositions: Map<string, VehiclePositionData>
 ): Promise<void> {
   const nowEpoch = Math.floor(Date.now() / 1000)
 
-  // --- Trip-Level Fallback Analysis ---
-  const tripLines: string[] = []
-  const routesWithFallback = new Set<string>()
-  const routesWithRealtime = new Set<string>()
-  const gtfsRouteIds = new Set(tripSummaries.map((t) => t.routeId))
-
-  for (const summary of tripSummaries) {
-    const shortRoute = extractRouteName(summary.routeId)
-    if (summary.isFallbackSuspected) {
-      routesWithFallback.add(shortRoute)
-      tripLines.push(
-        `- **ALERT: ${shortRoute} trip ${summary.tripId}** — ${summary.stopsWithDelay0 + summary.stopsWithNoData}/${summary.totalStops} stops show delay=0 or NO_DATA → SCHEDULE FALLBACK`
-      )
-    } else {
-      routesWithRealtime.add(shortRoute)
-      const realtime = summary.totalStops - summary.stopsWithDelay0 - summary.stopsWithNoData - summary.stopsWithNullDelay
-      tripLines.push(
-        `- ${shortRoute} trip ${summary.tripId} — ${realtime}/${summary.totalStops} stops have real-time delays → OK`
-      )
-    }
-  }
-
-  // Check for SIRI routes missing from GTFS-RT
-  for (const siriRoute of siriData.routes) {
-    const hasGtfs = [...gtfsRouteIds].some((rid) => rid.endsWith(siriRoute.route))
-    if (!hasGtfs) {
-      const vehicleCount = siriRoute.arrivals.length
-      tripLines.push(
-        `- **${siriRoute.route}** — no GTFS-RT trips found (SIRI has ${vehicleCount} vehicle${vehicleCount === 1 ? "" : "s"})`
-      )
-    }
-  }
-
   // --- Stop-Level Comparison ---
   const gtfsByVehicle = new Map<string, GtfsRtArrival>()
-  const tripSummaryMap = new Map(tripSummaries.map((t) => [t.tripId, t]))
   for (const a of stopArrivals) {
     const normalizedId = a.vehicleId ? normalizeVehicleId(a.vehicleId) : ""
     if (normalizedId) gtfsByVehicle.set(normalizedId, a)
@@ -79,7 +44,6 @@ export async function compareAndLog(
       // Only trust an explicit vehicle ID match. Route-order matching produced
       // duplicate trip assignments and polluted the downstream analysis.
       const gtfsMatch = normalizedId ? gtfsByVehicle.get(normalizedId) : undefined
-      const tripSummary = gtfsMatch?.tripId ? tripSummaryMap.get(gtfsMatch.tripId) : undefined
 
       // VP-based flag logic
       const vpData = normalizedId ? vehiclePositions.get(normalizedId) : undefined
@@ -108,7 +72,6 @@ export async function compareAndLog(
         gtfsDelay: gtfsMatch?.arrivalDelay ?? null,
         gtfsStatus: gtfsMatch?.scheduleRelationship ?? null,
         gtfsArrivalTime: gtfsMatch?.arrivalTime ?? null,
-        isFallback: tripSummary?.isFallbackSuspected ?? null,
         flag,
         tripId: gtfsMatch?.tripId ?? null,
         vpLatitude: vpData?.latitude ?? null,
@@ -137,8 +100,6 @@ export async function compareAndLog(
     const normalizedId = arrival.vehicleId ? normalizeVehicleId(arrival.vehicleId) : ""
     if (!normalizedId || siriVehicleIds.has(normalizedId)) continue
 
-    const tripSummary = tripSummaryMap.get(arrival.tripId)
-    const isFallback = tripSummary?.isFallbackSuspected ?? false
     const vpData = vehiclePositions.get(normalizedId)
     const shortRoute = extractRouteName(arrival.routeId)
 
@@ -146,7 +107,6 @@ export async function compareAndLog(
       tripId: arrival.tripId,
       routeId: arrival.routeId,
       vehicleId: normalizedId,
-      isFallback,
       arrivalDelay: arrival.arrivalDelay,
       arrivalTime: arrival.arrivalTime,
       scheduleRelationship: arrival.scheduleRelationship,
@@ -156,24 +116,14 @@ export async function compareAndLog(
       vpTimestamp: vpData?.timestamp ?? null,
     })
 
-    const fallbackTag = isFallback ? " **FALLBACK**" : ""
     const vpTag = vpData ? `VP age ${nowEpoch - vpData.timestamp}s` : "NO VP"
     gtfsOnlyLines.push(
-      `| ${shortRoute} | ${normalizedId} | ${arrival.tripId} | ${arrival.arrivalDelay ?? "—"} | ${vpTag} | ${arrival.scheduleRelationship}${fallbackTag} |`
+      `| ${shortRoute} | ${normalizedId} | ${arrival.tripId} | ${arrival.arrivalDelay ?? "—"} | ${vpTag} | ${arrival.scheduleRelationship} |`
     )
   }
 
-  // --- Summary ---
-  const siriRouteNames = new Set(siriData.routes.map((r) => r.route))
-  const fallbackCount = [...siriRouteNames].filter((r) => routesWithFallback.has(r)).length
-  const realtimeCount = [...siriRouteNames].filter((r) => routesWithRealtime.has(r)).length
-  const noGtfsCount = siriRouteNames.size - fallbackCount - realtimeCount
-
   const entry = `
 ## Stop ${stopCode} @ ${timestamp}
-
-### Trip-Level Fallback Analysis
-${tripLines.length > 0 ? tripLines.join("\n") : "No GTFS-RT trip data available"}
 
 ### Stop-Level Comparison (Stop ${stopCode})
 | Route | Vehicle | SIRI ETA | SIRI Distance | VP Age | VP Status | Flag |
@@ -186,7 +136,7 @@ ${gtfsOnlyLines.length > 0 ? `| Route | Vehicle | Trip | Delay | VP | Status |
 ${gtfsOnlyLines.join("\n")}` : "None — all GTFS-RT trips matched a SIRI vehicle"}
 
 ### Summary
-Routes: ${siriRouteNames.size} | Fallback suspected: ${fallbackCount} | Real-time: ${realtimeCount} | No GTFS-RT: ${noGtfsCount} | GTFS-only: ${gtfsOnlyTrips.length} | VP entries: ${vehiclePositions.size}
+Routes: ${siriData.routes.length} | GTFS-only: ${gtfsOnlyTrips.length} | VP entries: ${vehiclePositions.size}
 ---
 `
 
@@ -210,42 +160,61 @@ export async function logCorridorSnapshot(
   corridorStops: { before: string; primary: string; after: string },
   siriResults: { stopCode: string; role: "before" | "primary" | "after"; data: StopData }[],
   primaryArrivals: GtfsRtArrival[],
-  tripSummaries: GtfsRtTripSummary[],
   vehiclePositions: Map<string, VehiclePositionData>,
 ): Promise<void> {
+  const MAX_STOPS_AWAY = 5
+
   const siriStops: CorridorStopSiri[] = siriResults.map((s) => ({
     stopCode: s.stopCode,
     role: s.role,
     vehicles: s.data.routes.flatMap((r) =>
-      r.arrivals.map((a) => ({
-        vehicleId: normalizeVehicleId(a.vehicleId),
-        route: r.route,
-        etaMinutes: a.minutesNum === 999 ? null : a.minutesNum,
-        stopsAway: a.stopsAway,
-      }))
+      r.arrivals
+        .filter((a) => {
+          if (a.stopsAway === "at stop") return true
+          const match = a.stopsAway.match(/^(\d+) stop/)
+          return match ? parseInt(match[1], 10) <= MAX_STOPS_AWAY : false
+        })
+        .map((a) => ({
+          vehicleId: normalizeVehicleId(a.vehicleId),
+          route: r.route,
+          etaMinutes: a.minutesNum === 999 ? null : a.minutesNum,
+          stopsAway: a.stopsAway,
+        }))
     ),
   }))
+
+  // Only keep vehicle positions for buses that appear in nearby SIRI or GTFS arrivals
+  const relevantVehicleIds = new Set<string>()
+  for (const stop of siriStops) {
+    for (const v of stop.vehicles) {
+      relevantVehicleIds.add(v.vehicleId)
+    }
+  }
+  for (const a of primaryArrivals) {
+    if (a.vehicleId) relevantVehicleIds.add(a.vehicleId)
+  }
 
   const snapshot: CorridorSnapshot = {
     timestamp,
     corridor: corridorStops,
     siriStops,
     gtfsArrivals: primaryArrivals,
-    tripSummaries: tripSummaries.map((t) => ({
-      tripId: t.tripId,
-      routeId: t.routeId,
-      vehicleId: t.vehicleId,
-      isFallbackSuspected: t.isFallbackSuspected,
+    tripSummaries: primaryArrivals.map((a) => ({
+      tripId: a.tripId,
+      routeId: a.routeId,
+      vehicleId: a.vehicleId,
     })),
-    vehiclePositions: [...vehiclePositions.values()].map((vp) => ({
-      vehicleId: vp.vehicleId,
-      routeId: vp.routeId,
-      tripId: vp.tripId,
-      latitude: vp.latitude,
-      longitude: vp.longitude,
-      timestamp: vp.timestamp,
-      currentStatus: vp.currentStatus,
-    })),
+    vehiclePositions: [...vehiclePositions.values()]
+      .filter((vp) => relevantVehicleIds.has(vp.vehicleId))
+      .map((vp) => ({
+        vehicleId: vp.vehicleId,
+        routeId: vp.routeId,
+        tripId: vp.tripId,
+        latitude: vp.latitude,
+        longitude: vp.longitude,
+        timestamp: vp.timestamp,
+        currentStatus: vp.currentStatus,
+      })),
   }
 
   await mkdir(path.dirname(CORRIDOR_JSONL_PATH), { recursive: true })

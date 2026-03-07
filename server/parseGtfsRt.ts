@@ -1,7 +1,7 @@
 import GtfsRealtimeBindings from "gtfs-realtime-bindings"
 import { config } from "./config.ts"
 import { normalizeVehicleId } from "./utils.ts"
-import type { GtfsRtArrival, GtfsRtTripSummary, VehiclePositionData } from "./types.ts"
+import type { GtfsRtArrival, VehiclePositionData } from "./types.ts"
 
 const GTFS_RT_URL = `https://gtfsrt.prod.obanyc.com/tripUpdates`
 const VP_URL = `https://gtfsrt.prod.obanyc.com/vehiclePositions`
@@ -78,56 +78,6 @@ export async function fetchGtfsRtForStop(stopCode: string): Promise<GtfsRtArriva
   return arrivals
 }
 
-export async function fetchGtfsRtTripSummaries(routeNames: string[]): Promise<GtfsRtTripSummary[]> {
-  const feed = await getFeed()
-  const summaries: GtfsRtTripSummary[] = []
-
-  for (const entity of feed.entity) {
-    const tu = entity.tripUpdate
-    if (!tu?.trip?.routeId) continue
-
-    const routeId = tu.trip.routeId
-    // Match by suffix — GTFS-RT routeId may be "MTA NYCT_M101"
-    const matches = routeNames.some((name) => routeId.endsWith(name))
-    if (!matches) continue
-
-    const stops = tu.stopTimeUpdate ?? []
-    let stopsWithDelay0 = 0
-    let stopsWithNoData = 0
-    let stopsWithNullDelay = 0
-
-    for (const stu of stops) {
-      const rel = stu.scheduleRelationship ?? 0
-      if (rel === 2) {
-        stopsWithNoData++
-        continue
-      }
-      const delay = stu.arrival?.delay
-      if (delay == null) {
-        stopsWithNullDelay++
-      } else if (delay === 0) {
-        stopsWithDelay0++
-      }
-    }
-
-    const totalStops = stops.length
-    const isFallbackSuspected = totalStops > 0 &&
-      (stopsWithDelay0 + stopsWithNoData) === totalStops
-
-    summaries.push({
-      tripId: tu.trip.tripId ?? "",
-      routeId,
-      vehicleId: tu.vehicle?.id ?? "",
-      totalStops,
-      stopsWithDelay0,
-      stopsWithNoData,
-      stopsWithNullDelay,
-      isFallbackSuspected,
-    })
-  }
-
-  return summaries
-}
 
 // --- Vehicle Position Feed ---
 

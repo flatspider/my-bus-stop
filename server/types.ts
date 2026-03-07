@@ -86,17 +86,6 @@ export interface GtfsRtArrival {
   scheduleRelationship: string
 }
 
-export interface GtfsRtTripSummary {
-  tripId: string
-  routeId: string
-  vehicleId: string
-  totalStops: number
-  stopsWithDelay0: number
-  stopsWithNoData: number
-  stopsWithNullDelay: number
-  isFallbackSuspected: boolean
-}
-
 export interface VehiclePositionData {
   vehicleId: string
   tripId: string
@@ -116,7 +105,6 @@ export interface SnapshotVehicle {
   gtfsDelay: number | null
   gtfsStatus: string | null
   gtfsArrivalTime: number | null
-  isFallback: boolean | null
   flag: "OK" | "NO_VP" | "STALE_VP" | "FAR" | "NO_GTFS_RT"
   tripId: string | null
   vpLatitude: number | null
@@ -129,7 +117,6 @@ export interface GtfsOnlyTrip {
   tripId: string
   routeId: string
   vehicleId: string
-  isFallback: boolean
   arrivalDelay: number | null
   arrivalTime: number | null
   scheduleRelationship: string
@@ -165,7 +152,7 @@ export interface CorridorSnapshot {
   }
   siriStops: CorridorStopSiri[]
   gtfsArrivals: GtfsRtArrival[]  // GTFS-RT arrivals at the PRIMARY stop
-  tripSummaries: { tripId: string; routeId: string; vehicleId: string; isFallbackSuspected: boolean }[]
+  tripSummaries: { tripId: string; routeId: string; vehicleId: string }[]
   vehiclePositions: {
     vehicleId: string
     routeId: string
