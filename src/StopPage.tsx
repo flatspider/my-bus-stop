@@ -15,6 +15,7 @@ import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import { shouldForceLeadCardNow } from "./urlFlags";
 import type { InitialStopData } from "./initialStopData";
+import { formatStopName } from "./formatStopName";
 
 type LayoutMode = "singleHero" | "topStack" | "dense";
 
@@ -222,9 +223,11 @@ export default function StopPage({ initialData = null }: StopPageProps) {
     ? "Unable to fetch arrivals right now."
     : "No live arrivals reported for this stop right now.";
   const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
+  const formattedStopName = stopName ? formatStopName(stopName) : `Stop ${normalizedStopCode}`;
 
   return (
     <div className="app">
+      <h1 className="sr-only">{formattedStopName} bus arrivals</h1>
       <header
         className={`app-header${searchExpanded ? " app-header--search-active" : ""}`}
       >
@@ -271,7 +274,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
 
       {error && !noData && <div className="error">{error}</div>}
 
-      <div className={cardsClassName}>
+      <main className={cardsClassName}>
         {loading ? (
           <div className="loading">Loading...</div>
         ) : noData ? (
@@ -325,7 +328,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
             </div>
           </Suspense>
         )}
-      </div>
+      </main>
 
       {isHydrated && showTutorial && !loading && arrivalCards.length > 0 && (
         <Suspense fallback={null}>

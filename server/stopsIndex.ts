@@ -358,6 +358,10 @@ export function getStopByCode(stopCode: string): SearchIndexedStop | null {
   return cachedStopsV2.find((stop) => stop.code === stopCode) ?? null
 }
 
+export function getAllStops(): SearchIndexedStop[] {
+  return cachedStopsV2
+}
+
 function postingsForToken(index: RuntimeSearchIndex, queryToken: string): number[] {
   const exact = index.tokenPostings.get(queryToken)
   if (exact && exact.length > 0) return exact

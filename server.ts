@@ -7,9 +7,10 @@ import { fetchGtfsRtForStop, fetchVehiclePositions } from "./server/parseGtfsRt.
 import { compareAndLog, CORRIDOR_JSONL_PATH, JSONL_PATH, logCorridorSnapshot } from "./server/compare.ts";
 import { readFile } from "node:fs/promises";
 import { computeUnhappiestStop, loadGapIndex } from "./server/unhappy.ts";
-import { getStopByCode, getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
+import { getAllStops, getStopByCode, getStopsIndexCount, loadStopsIndex, nearbyStops, searchStops, searchStopsWithDebug, stopCodeExists } from "./server/stopsIndex.ts";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./src/stopConfig.ts";
 import type { InitialStopData } from "./src/initialStopData.ts";
+import { applyMetadataToHtmlDocument, buildNotFoundMetadata, buildStopMetadata, buildUnhappyMetadata, type PageMetadata } from "./server/seo.ts";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -73,6 +74,7 @@ async function loadRenderModule(): Promise<RenderServerModule> {
 async function buildSsrDocument(
   url: string,
   initialStopData: InitialStopData | null,
+  metadata: PageMetadata,
 ): Promise<string> {
   const [template, entry, renderModule] = await Promise.all([
     loadClientTemplate(),
@@ -100,7 +102,25 @@ async function buildSsrDocument(
     `${bootstrapScript}\n    <script type="module" crossorigin src="/${entry.file}"></script>`,
   );
   html = html.replace('<div id="root"></div>', `<div id="root">${appHtml}</div>`);
-  return html;
+  return applyMetadataToHtmlDocument(html, metadata);
+}
+
+async function buildPlainDocument(
+  bodyHtml: string,
+  metadata: PageMetadata,
+): Promise<string> {
+  const template = await loadClientTemplate();
+  let html = template;
+  html = html.replace(
+    /<link rel="stylesheet" crossorigin href="\/assets\/[^"]+">/,
+    "",
+  );
+  html = html.replace(
+    /<script type="module" crossorigin src="\/assets\/[^"]+"><\/script>/,
+    "",
+  );
+  html = html.replace('<div id="root"></div>', `<main style="padding:24px;font-family:system-ui,sans-serif">${bodyHtml}</main>`);
+  return applyMetadataToHtmlDocument(html, metadata);
 }
 
 async function fetchInitialStopData(stopCode: string): Promise<InitialStopData> {
@@ -242,6 +262,51 @@ app.get("/", (_req, res) => {
   res.redirect(302, `/stop/${DEFAULT_STOP_CODE}`);
 });
 
+app.get("/robots.txt", (_req, res) => {
+  res.type("text/plain");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(`User-agent: *\nAllow: /\n\nSitemap: ${config.siteUrl}/sitemap.xml\n`);
+});
+
+app.get("/sitemap.xml", (_req, res) => {
+  const urls = [
+    config.siteUrl,
+    `${config.siteUrl}/unhappy`,
+    ...getAllStops().map((stop) => `${config.siteUrl}/stop/${stop.code}`),
+  ];
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...urls.map((url) => `  <url><loc>${url}</loc></url>`),
+    "</urlset>",
+  ].join("\n");
+
+  res.type("application/xml");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(xml);
+});
+
+app.get("/unhappy", async (req, res, next) => {
+  if (!isProduction) {
+    next();
+    return;
+  }
+
+  try {
+    const html = await buildSsrDocument(
+      req.originalUrl,
+      null,
+      buildUnhappyMetadata(config.siteUrl, req.originalUrl),
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(html);
+  } catch (err) {
+    console.error("[ssr] Unhappy page render failed:", err);
+    next(err);
+  }
+});
+
 app.get("/stop/:stopCode", async (req, res, next) => {
   if (!isProduction) {
     next();
@@ -257,9 +322,24 @@ app.get("/stop/:stopCode", async (req, res, next) => {
     return;
   }
 
+  const indexedStop = getStopByCode(stopCode);
+  if (!indexedStop) {
+    const html = await buildPlainDocument(
+      `<h1>Stop not found</h1><p>We couldn&apos;t find stop ${stopCode}.</p>`,
+      buildNotFoundMetadata(config.siteUrl, req.originalUrl),
+    );
+    res.setHeader("Cache-Control", "no-store");
+    res.status(404).send(html);
+    return;
+  }
+
   try {
     const initialStopData = await fetchInitialStopData(stopCode);
-    const html = await buildSsrDocument(req.originalUrl, initialStopData);
+    const html = await buildSsrDocument(
+      req.originalUrl,
+      initialStopData,
+      buildStopMetadata(config.siteUrl, req.originalUrl, indexedStop),
+    );
     res.setHeader("Cache-Control", "no-store");
     res.status(initialStopData.error ? 502 : 200).send(html);
   } catch (err) {
