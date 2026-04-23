@@ -1529,9 +1529,11 @@ html.dark .bus-card__vehicle-dot--fallback {
   inset: -15px;
 }
 
-.feedback-card__tab:hover {
-  color: var(--bauhaus-red);
-  background: var(--bg);
+@media (hover: hover) {
+  .feedback-card__tab:hover {
+    color: var(--bauhaus-red);
+    background: var(--bg);
+  }
 }
 
 /* The card body — styled like a bus card */
