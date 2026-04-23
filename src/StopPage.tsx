@@ -56,7 +56,6 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
   const inFlightRequestRef = useRef<{
@@ -222,7 +221,6 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const noDataMessage = error
     ? "Unable to fetch arrivals right now."
     : "No live arrivals reported for this stop right now.";
-  const tutorialHighlightsStopInput = showTutorial && tutorialStep === 2;
   const formattedStopName = stopName ? formatStopName(stopName) : `Stop ${normalizedStopCode}`;
 
   return (
@@ -321,7 +319,6 @@ export default function StopPage({ initialData = null }: StopPageProps) {
                 isRefreshing={isRefreshing}
                 refreshCooldownSeconds={refreshCooldownSeconds}
                 settings={settings}
-                tutorialHighlightsStopInput={tutorialHighlightsStopInput}
                 onNavigateToStop={() => setSettingsOpen(false)}
                 onUpdateSetting={updateSetting}
               />
@@ -336,11 +333,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
             onClose={() => {
               localStorage.setItem("tutorialComplete", "true");
               setShowTutorial(false);
-              setTutorialStep(0);
-              setSettingsOpen(false);
             }}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onStepChange={setTutorialStep}
           />
         </Suspense>
       )}

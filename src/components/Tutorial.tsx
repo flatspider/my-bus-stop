@@ -1,11 +1,8 @@
-import { useState, useEffect, useLayoutEffect, useEffectEvent } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 
 const MOBILE_BREAKPOINT_PX = 600;
 const VIEWPORT_GUTTER_PX = 12;
 const REGULAR_STEP_REVEAL_DELAY_MS = 220;
-const SETTINGS_STEP_MAX_WAIT_MS = 900;
-const SETTINGS_STEP_STABLE_FRAMES = 3;
-const RECT_STABLE_DELTA_PX = 0.75;
 const SECONDARY_SPOT_INSET_PX = 6;
 const DEFAULT_SPOT_INSETS = { top: 8, right: 8, bottom: 8, left: 8 };
 const DEFAULT_STOP_SPOT_INSETS_MOBILE = {
@@ -20,18 +17,6 @@ const DEFAULT_STOP_SPOT_INSETS_DESKTOP = {
   bottom: 8,
   left: 12,
 };
-const STOP_INPUT_SPOT_INSETS_DESKTOP = {
-  top: 14,
-  right: 10,
-  bottom: 10,
-  left: 10,
-};
-const STOP_INPUT_SPOT_INSETS_MOBILE = {
-  top: 10,
-  right: 8,
-  bottom: 10,
-  left: 8,
-};
 
 const STEPS = [
   {
@@ -45,17 +30,14 @@ const STEPS = [
     borderRadius: 16,
   },
   {
-    target: '[data-tutorial="stop-input"]',
-    text: "In settings, scan or enter your 6-digit stop code to track your stop.",
+    target: '[data-tutorial="feedback"]',
+    text: "Got feedback? Tap here to let us know how BusWatch can improve.",
     borderRadius: 16,
-    openSettings: true,
-    secondaryTarget: '[data-tutorial="settings-gear"]',
   },
 ];
 
 interface Props {
   onClose: () => void;
-  onOpenSettings: () => void;
   onStepChange?: (step: number) => void;
 }
 
@@ -69,15 +51,6 @@ interface SpotInsets {
 function clamp(value: number, min: number, max: number): number {
   if (max <= min) return min;
   return Math.min(Math.max(value, min), max);
-}
-
-function rectsAreClose(a: DOMRect, b: DOMRect, delta: number): boolean {
-  return (
-    Math.abs(a.top - b.top) <= delta &&
-    Math.abs(a.left - b.left) <= delta &&
-    Math.abs(a.width - b.width) <= delta &&
-    Math.abs(a.height - b.height) <= delta
-  );
 }
 
 function measureElement(selector: string): DOMRect | null {
@@ -100,17 +73,11 @@ function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
       ? DEFAULT_STOP_SPOT_INSETS_MOBILE
       : DEFAULT_STOP_SPOT_INSETS_DESKTOP;
   }
-  if (STEPS[stepIndex].target === '[data-tutorial="stop-input"]') {
-    return isMobile
-      ? STOP_INPUT_SPOT_INSETS_MOBILE
-      : STOP_INPUT_SPOT_INSETS_DESKTOP;
-  }
   return DEFAULT_SPOT_INSETS;
 }
 
 export default function Tutorial({
   onClose,
-  onOpenSettings,
   onStepChange,
 }: Props) {
   const [step, setStep] = useState(0);
@@ -118,8 +85,6 @@ export default function Tutorial({
   const [secondaryRect, setSecondaryRect] = useState<DOMRect | null>(null);
   const [visible, setVisible] = useState(true);
   const [instantHide, setInstantHide] = useState(false);
-
-  const openSettingsEvent = useEffectEvent(onOpenSettings);
 
   // Measure on mount
   useEffect(() => {
@@ -136,89 +101,17 @@ export default function Tutorial({
   useLayoutEffect(() => {
     if (step === 0) return;
 
-    const shouldOpenSettings = Boolean(STEPS[step].openSettings);
     setInstantHide(true);
-
-    // Hide first so spotlight/tooltip can move cleanly between targets.
     setVisible(false);
 
-    let openTimer: ReturnType<typeof setTimeout> | undefined;
-    let revealTimer: ReturnType<typeof setTimeout> | undefined;
-    let rafId: number | undefined;
-    let cancelled = false;
+    const revealTimer = setTimeout(() => {
+      setRect(measureTarget(step));
+      setSecondaryRect(measureSecondaryTarget(step));
+      setVisible(true);
+      setInstantHide(false);
+    }, REGULAR_STEP_REVEAL_DELAY_MS);
 
-    if (shouldOpenSettings) {
-      openTimer = setTimeout(() => {
-        openSettingsEvent();
-      }, 0);
-
-      const startedAt = performance.now();
-      let previousRect: DOMRect | null = null;
-      let stableFrames = 0;
-
-      let hasScrolled = false;
-
-      const pollUntilStable = () => {
-        if (cancelled) return;
-
-        // Scroll target into view once so it's visible in browsers with
-        // reduced viewport height (e.g. Twitter's in-app browser).
-        if (!hasScrolled) {
-          const targetEl = document.querySelector(STEPS[step].target);
-          if (targetEl) {
-            targetEl.scrollIntoView({ behavior: "instant", block: "center" });
-            hasScrolled = true;
-          }
-        }
-
-        const nextRect = measureTarget(step);
-        const nextSecondaryRect = measureSecondaryTarget(step);
-        setSecondaryRect(nextSecondaryRect);
-        const hasTimedOut =
-          performance.now() - startedAt >= SETTINGS_STEP_MAX_WAIT_MS;
-
-        if (nextRect) {
-          setRect(nextRect);
-          if (
-            previousRect &&
-            rectsAreClose(previousRect, nextRect, RECT_STABLE_DELTA_PX)
-          ) {
-            stableFrames += 1;
-          } else {
-            stableFrames = 0;
-          }
-          previousRect = nextRect;
-
-          if (stableFrames >= SETTINGS_STEP_STABLE_FRAMES || hasTimedOut) {
-            setVisible(true);
-            setInstantHide(false);
-            return;
-          }
-        } else if (hasTimedOut) {
-          setVisible(true);
-          setInstantHide(false);
-          return;
-        }
-
-        rafId = window.requestAnimationFrame(pollUntilStable);
-      };
-
-      rafId = window.requestAnimationFrame(pollUntilStable);
-    } else {
-      revealTimer = setTimeout(() => {
-        setRect(measureTarget(step));
-        setSecondaryRect(measureSecondaryTarget(step));
-        setVisible(true);
-        setInstantHide(false);
-      }, REGULAR_STEP_REVEAL_DELAY_MS);
-    }
-
-    return () => {
-      cancelled = true;
-      if (openTimer) clearTimeout(openTimer);
-      if (revealTimer) clearTimeout(revealTimer);
-      if (rafId !== undefined) window.cancelAnimationFrame(rafId);
-    };
+    return () => clearTimeout(revealTimer);
   }, [step]);
 
   // Re-measure on resize

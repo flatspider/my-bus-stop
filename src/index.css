@@ -1498,14 +1498,17 @@ html.dark .bus-card__vehicle-dot--fallback {
 }
 
 .feedback-card--collapsed {
-  transform: translateX(calc(100% - 36px));
+  transform: translateX(calc(100% - 34px));
 }
 
 /* The small tab that stays visible when collapsed */
 .feedback-card__tab {
+  position: relative;
   flex-shrink: 0;
-  width: 36px;
-  height: 44px;
+  width: 48px;
+  padding: 12px 18px 12px 8px;
+  margin-right: -14px;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1514,9 +1517,16 @@ html.dark .bus-card__vehicle-dot--fallback {
   border: 1px solid var(--border);
   border-right: none;
   border-radius: 12px 0 0 12px;
+  z-index: -1;
   cursor: pointer;
   box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.08);
   transition: color 0.15s ease, background 0.15s ease;
+}
+
+.feedback-card__tab::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
 }
 
 .feedback-card__tab:hover {

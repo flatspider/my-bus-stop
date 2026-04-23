@@ -55,6 +55,7 @@ function FeedbackCard() {
 
   return (
     <div
+      data-tutorial="feedback"
       className={`feedback-card ${entered ? "feedback-card--entered" : ""} ${collapsed ? "feedback-card--collapsed" : ""}`}
     >
       {/* Collapsed tab with + icon */}
@@ -64,7 +65,7 @@ function FeedbackCard() {
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? "Show feedback card" : "Hide feedback card"}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           {collapsed ? (
             <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           ) : (

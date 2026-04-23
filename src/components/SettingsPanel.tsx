@@ -13,7 +13,6 @@ interface SettingsPanelProps {
   isRefreshing: boolean;
   refreshCooldownSeconds: number;
   settings: Settings;
-  tutorialHighlightsStopInput?: boolean;
   onNavigateToStop?: () => void;
   onUpdateSetting: <K extends keyof Settings>(
     key: K,
@@ -69,7 +68,6 @@ export default function SettingsPanel({
   isRefreshing,
   refreshCooldownSeconds,
   settings,
-  tutorialHighlightsStopInput = false,
   onNavigateToStop,
   onUpdateSetting,
 }: SettingsPanelProps) {
@@ -109,10 +107,6 @@ export default function SettingsPanel({
     }
   }, [canUseQrScan, scannerOpen]);
 
-  useEffect(() => {
-    if (!tutorialHighlightsStopInput) return;
-    setIsChangeStopOpen(true);
-  }, [tutorialHighlightsStopInput]);
 
   useEffect(() => {
     return () => {
@@ -300,7 +294,7 @@ export default function SettingsPanel({
                     )}
                   </div>
                   <button
-                    className={`settings-panel__go${tutorialHighlightsStopInput ? " settings-panel__go--tutorial-active" : ""}`}
+                    className="settings-panel__go"
                     type="submit"
                     disabled={!canGo || isValidatingStop}
                   >
