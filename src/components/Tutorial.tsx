@@ -18,7 +18,7 @@ const DEFAULT_STOP_SPOT_INSETS_DESKTOP = {
   left: 12,
 };
 
-const STEPS = [
+const STEPS: { target: string; text: string; borderRadius: number; secondaryTarget?: string }[] = [
   {
     target: '[data-tutorial="default-stop"]',
     text: "Tap to search for your bus stop.",
