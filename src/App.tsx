@@ -66,7 +66,7 @@ function FeedbackCard() {
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? "Show feedback card" : "Hide feedback card"}
       >
-        <svg width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <svg width="25" height="25" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           {collapsed ? (
             <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           ) : (
@@ -88,8 +88,8 @@ function FeedbackCard() {
         <div className="feedback-card__content">
           <svg
             className="feedback-card__icon"
-            width="20"
-            height="20"
+            width="25"
+            height="25"
             viewBox="0 0 20 20"
             fill="none"
             aria-hidden="true"
