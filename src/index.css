@@ -1485,11 +1485,14 @@ html.dark .bus-card__vehicle-dot--fallback {
 .feedback-card {
   position: fixed;
   bottom: 24px;
-  right: 0;
+  right: 20px;
   z-index: 900;
   display: flex;
   align-items: center;
-  transform: translateX(100%);
+  background: var(--card-bg);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  transform: translateX(calc(100% + 20px));
   transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1498,29 +1501,24 @@ html.dark .bus-card__vehicle-dot--fallback {
 }
 
 .feedback-card--collapsed {
-  transform: translateX(calc(100% - 42px));
+  transform: translateX(calc(100% + 20px - 42px));
 }
 
-/* The small tab that stays visible when collapsed */
+/* The close/expand tab on the left side of the pill */
 .feedback-card__tab {
   position: relative;
   flex-shrink: 0;
-  width: 60px;
-  padding: 15px 22px 15px 10px;
-  margin-right: -18px;
-  align-self: stretch;
+  width: 42px;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--card-bg);
+  background: transparent;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-right: none;
-  border-radius: 15px 0 0 15px;
-  z-index: -1;
+  border: none;
+  border-radius: 20px 0 0 20px;
   cursor: pointer;
-  box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.08);
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .feedback-card__tab::before {
@@ -1532,46 +1530,34 @@ html.dark .bus-card__vehicle-dot--fallback {
 @media (hover: hover) {
   .feedback-card__tab:hover {
     color: var(--bauhaus-red);
-    background: var(--bg);
   }
 }
 
-/* The card body — styled like a bus card */
+/* The card body — right side of the pill */
 .feedback-card__body {
   display: flex;
   flex-direction: column;
-  background: var(--card-bg);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
+  background: transparent;
   overflow: hidden;
   text-decoration: none;
   color: var(--text);
   cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
-  margin-right: 20px;
-}
-
-.feedback-card__body:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 12px 32px rgba(0, 0, 0, 0.08);
 }
 
 .feedback-card__body:active {
-  transform: scale(0.97);
+  opacity: 0.8;
 }
 
 /* Red accent bar at top — matches bus card style */
 .feedback-card__accent {
-  height: 4px;
-  background: var(--bauhaus-red);
-  border-radius: 0 0 2px 2px;
-  margin: 0 20px;
+  display: none;
 }
 
 .feedback-card__content {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 25px;
+  padding: 18px 25px 18px 10px;
 }
 
 .feedback-card__icon {
@@ -1589,15 +1575,15 @@ html.dark .bus-card__vehicle-dot--fallback {
 @media (max-width: 600px) {
   .feedback-card {
     bottom: 80px;
+    right: 15px;
   }
 
-  .feedback-card__body {
-    border-radius: 22px;
-    margin-right: 15px;
+  .feedback-card--collapsed {
+    transform: translateX(calc(100% + 15px - 42px));
   }
 
   .feedback-card__content {
-    padding: 15px 20px;
+    padding: 15px 20px 15px 10px;
   }
 
   .feedback-card__label {
