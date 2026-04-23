@@ -225,6 +225,11 @@ export default function SettingsPanel({
             checked={settings.darkMode}
             onChange={(v) => onUpdateSetting("darkMode", v)}
           />
+          <ToggleRow
+            label="Show feedback button"
+            checked={settings.showFeedback}
+            onChange={(v) => onUpdateSetting("showFeedback", v)}
+          />
         </div>
 
         <div className="settings-panel__section">

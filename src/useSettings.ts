@@ -6,6 +6,7 @@ export interface Settings {
   showStopsAway: boolean
   showStopTitle: boolean
   darkMode: boolean
+  showFeedback: boolean
 }
 
 const STORAGE_KEY = 'buswatch-settings'
@@ -17,6 +18,7 @@ const DEFAULTS: Settings = {
   showStopsAway: true,
   showStopTitle: true,
   darkMode: false,
+  showFeedback: true,
 }
 
 let cachedSettingsRaw: string | null | undefined

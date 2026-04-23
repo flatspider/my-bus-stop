@@ -10,6 +10,7 @@ import StopPage from "./StopPage";
 import UnhappyPage from "./UnhappyPage";
 import { DEFAULT_STOP_CODE } from "./stopConfig";
 import type { InitialStopData } from "./initialStopData";
+import { useSettings } from "./useSettings";
 
 interface AppProps {
   initialStopData?: InitialStopData | null;
@@ -105,6 +106,12 @@ function FeedbackCard() {
   );
 }
 
+function FeedbackCardWrapper() {
+  const { settings } = useSettings();
+  if (!settings.showFeedback) return null;
+  return <FeedbackCard />;
+}
+
 export default function App({ initialStopData = null, location }: AppProps) {
   if (location) {
     return (
@@ -117,7 +124,7 @@ export default function App({ initialStopData = null, location }: AppProps) {
   return (
     <BrowserRouter>
       <AppRoutes initialStopData={initialStopData} />
-      <FeedbackCard />
+      <FeedbackCardWrapper />
     </BrowserRouter>
   );
 }
