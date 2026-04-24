@@ -19,7 +19,7 @@ const DEFAULT_ENRICHED_STOPS_PATH = path.join(__dirname, "..", "data", "stops-en
 
 const MAX_LIMIT = 10
 const DEFAULT_SEARCH_LIMIT = 8
-const DEFAULT_NEARBY_LIMIT = 3
+const DEFAULT_NEARBY_LIMIT = 10
 const DEFAULT_NEARBY_RADIUS_METERS = 1609
 const DEBUG_QUERY_LIMIT = 5
 

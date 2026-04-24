@@ -6,8 +6,8 @@ import type { StopSearchResult } from "../types";
 const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
 const RECENTS_EVENT = "buswatch-stop-search-recents-change";
 const SEARCH_LIMIT = 5;
-const NEARBY_LIMIT = 3;
-const MAX_VISIBLE_RESULTS = 5;
+const NEARBY_LIMIT = 10;
+const MAX_VISIBLE_RESULTS = 10;
 
 let cachedRecentsRaw: string | null | undefined;
 let cachedRecentsSnapshot: StopSearchResult[] = [];
