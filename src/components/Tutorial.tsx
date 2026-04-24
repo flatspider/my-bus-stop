@@ -18,7 +18,12 @@ const DEFAULT_STOP_SPOT_INSETS_DESKTOP = {
   left: 12,
 };
 
-const STEPS: { target: string; text: string; borderRadius: number; secondaryTarget?: string }[] = [
+const STEPS: {
+  target: string;
+  text: string;
+  borderRadius: number;
+  secondaryTarget?: string;
+}[] = [
   {
     target: '[data-tutorial="default-stop"]',
     text: "Tap to search for your bus stop.",
@@ -31,7 +36,7 @@ const STEPS: { target: string; text: string; borderRadius: number; secondaryTarg
   },
   {
     target: '[data-tutorial="feedback"]',
-    text: "Got feedback? Tap here to let us know how BusWatch can improve.",
+    text: "Got feedback? Tap here to let us know how Bauhaus Bus can improve.",
     borderRadius: 16,
   },
 ];
@@ -76,10 +81,7 @@ function getSpotInsets(stepIndex: number, isMobile: boolean): SpotInsets {
   return DEFAULT_SPOT_INSETS;
 }
 
-export default function Tutorial({
-  onClose,
-  onStepChange,
-}: Props) {
+export default function Tutorial({ onClose, onStepChange }: Props) {
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [secondaryRect, setSecondaryRect] = useState<DOMRect | null>(null);
