@@ -258,8 +258,20 @@ app.get("/api/stops/exists", (req, res) => {
   res.json({ exists: stopCodeExists(code) });
 });
 
-app.get("/", (_req, res) => {
-  res.redirect(302, `/stop/${DEFAULT_STOP_CODE}`);
+app.get("/", async (req, res, next) => {
+  if (!isProduction) {
+    next();
+    return;
+  }
+
+  try {
+    const html = await buildSsrDocument(req.originalUrl, null, buildStopMetadata(config.siteUrl, req.originalUrl, getStopByCode(DEFAULT_STOP_CODE)!));
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).send(html);
+  } catch (err) {
+    console.error("[ssr] Root page render failed:", err);
+    next(err);
+  }
 });
 
 app.get("/robots.txt", (_req, res) => {

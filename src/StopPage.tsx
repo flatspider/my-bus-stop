@@ -13,6 +13,7 @@ import StatusDot from "./components/StaleDataBanner";
 import StopSearchHeader from "./components/StopSearchHeader";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
+import { loadRecents, saveRecents } from "./recentStopsStore";
 import { shouldForceLeadCardNow } from "./urlFlags";
 import type { InitialStopData } from "./initialStopData";
 import { formatStopName } from "./formatStopName";
@@ -68,6 +69,16 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   if (matchedInitialData && !matchedInitialData.isPartial) {
     lastRequestAtByStopRef.current[normalizedStopCode] = matchedInitialData.fetchedAt;
   }
+
+  useEffect(() => {
+    if (!isValidStopCode || !stopName) return;
+    const recents = loadRecents();
+    if (recents[0]?.code === normalizedStopCode) return;
+    saveRecents([
+      { code: normalizedStopCode, name: stopName },
+      ...recents.filter((r) => r.code !== normalizedStopCode),
+    ]);
+  }, [normalizedStopCode, stopName, isValidStopCode]);
 
   useEffect(() => {
     activeStopCodeRef.current = normalizedStopCode;

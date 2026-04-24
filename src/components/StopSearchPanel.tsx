@@ -1,16 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { fetchNearbyStops, searchStops } from "../stopSearchApi";
 import { formatStopName } from "../formatStopName";
+import { saveRecents, useRecents } from "../recentStopsStore";
 import type { StopSearchResult } from "../types";
 
-const RECENT_STOPS_KEY = "buswatch-stop-search-recents";
-const RECENTS_EVENT = "buswatch-stop-search-recents-change";
 const SEARCH_LIMIT = 5;
 const NEARBY_LIMIT = 10;
 const MAX_VISIBLE_RESULTS = 10;
-
-let cachedRecentsRaw: string | null | undefined;
-let cachedRecentsSnapshot: StopSearchResult[] = [];
 
 interface StopSearchPanelProps {
   onClose: () => void;
@@ -28,68 +24,6 @@ type LocationState =
   | "granted"
   | "denied"
   | "unavailable";
-
-function loadRecents(): StopSearchResult[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = localStorage.getItem(RECENT_STOPS_KEY);
-    if (raw === cachedRecentsRaw) return cachedRecentsSnapshot;
-    if (!raw) {
-      cachedRecentsRaw = null;
-      cachedRecentsSnapshot = [];
-      return cachedRecentsSnapshot;
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      cachedRecentsRaw = raw;
-      cachedRecentsSnapshot = [];
-      return cachedRecentsSnapshot;
-    }
-
-    cachedRecentsRaw = raw;
-    cachedRecentsSnapshot = parsed
-      .filter((item): item is StopSearchResult => {
-        if (!item || typeof item !== "object") return false;
-        const maybe = item as Partial<StopSearchResult>;
-        return typeof maybe.code === "string" && typeof maybe.name === "string";
-      })
-      .slice(0, 3);
-    return cachedRecentsSnapshot;
-  } catch {
-    cachedRecentsRaw = null;
-    cachedRecentsSnapshot = [];
-    return cachedRecentsSnapshot;
-  }
-}
-
-function saveRecents(recents: StopSearchResult[]): void {
-  if (typeof window === "undefined") return;
-  const nextRecents = recents.slice(0, 3);
-  const raw = JSON.stringify(nextRecents);
-  cachedRecentsRaw = raw;
-  cachedRecentsSnapshot = nextRecents;
-  localStorage.setItem(RECENT_STOPS_KEY, raw);
-  window.dispatchEvent(new Event(RECENTS_EVENT));
-}
-
-function subscribeToRecents(onStoreChange: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
-
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key && event.key !== RECENT_STOPS_KEY) return;
-    onStoreChange();
-  };
-  const handleCustomEvent = () => onStoreChange();
-
-  window.addEventListener("storage", handleStorage);
-  window.addEventListener(RECENTS_EVENT, handleCustomEvent);
-  return () => {
-    window.removeEventListener("storage", handleStorage);
-    window.removeEventListener(RECENTS_EVENT, handleCustomEvent);
-  };
-}
 
 function formatDistance(distanceMeters: number | undefined): string {
   if (distanceMeters === undefined) return "";
@@ -148,7 +82,7 @@ export default function StopSearchPanel({
   const [searchResults, setSearchResults] = useState<StopSearchResult[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
 
-  const recents = useSyncExternalStore(subscribeToRecents, loadRecents, () => []);
+  const recents = useRecents();
   const statusId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);

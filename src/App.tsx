@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import StopPage from "./StopPage";
 import UnhappyPage from "./UnhappyPage";
-import { DEFAULT_STOP_CODE } from "./stopConfig";
+import { getLastStopCode } from "./recentStopsStore";
 import type { InitialStopData } from "./initialStopData";
 import { useSettings } from "./useSettings";
 
@@ -26,7 +26,7 @@ function AppRoutes({
     <Routes>
       <Route
         path="/"
-        element={<Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />}
+        element={<Navigate to={`/stop/${getLastStopCode()}`} replace />}
       />
       <Route path="/unhappy" element={<UnhappyPage />} />
       <Route
