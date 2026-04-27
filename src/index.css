@@ -803,6 +803,16 @@ html.dark .bus-card--settings {
   white-space: normal;
 }
 
+.bus-card__stops-away-suffix {
+  display: none;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.bus-card__stops-away-suffix--show {
+  display: inline;
+}
+
 html.dark .bus-card__stops-away {
   color: #c9c9c9;
   font-weight: 500;

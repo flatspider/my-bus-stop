@@ -237,7 +237,10 @@ export default function BusCard({
               {stopsAway.count ? (
                 <>
                   <span className="bus-card__stops-away-count">{stopsAway.count}</span>
-                  <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                  <span className="bus-card__stops-away-label">
+                    {stopsAway.label}
+                    <span className={`bus-card__stops-away-suffix${expanded ? " bus-card__stops-away-suffix--show" : ""}`}> away</span>
+                  </span>
                 </>
               ) : (
                 <span className="bus-card__stops-away-label">{stopsAway.label}</span>
@@ -275,7 +278,10 @@ export default function BusCard({
             {stopsAway.count ? (
               <span className="bus-card__stops-away bus-card__stops-away--stacked" aria-label={arrival.stopsAway}>
                 <span className="bus-card__stops-away-count">{stopsAway.count}</span>
-                <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                <span className="bus-card__stops-away-label">
+                  {stopsAway.label}
+                  <span className={`bus-card__stops-away-suffix${expanded ? " bus-card__stops-away-suffix--show" : ""}`}> away</span>
+                </span>
               </span>
             ) : (
               <span className="bus-card__stops-away bus-card__stops-away--stacked bus-card__stops-away--text-only">
