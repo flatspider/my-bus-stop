@@ -872,6 +872,34 @@ html.dark .bus-card__vehicle-dot--fallback {
   background: #7f7f7f;
 }
 
+/* ── Card Detail Row (tap-to-expand) ── */
+.bus-card__detail-row {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.bus-card__detail-row--open {
+  grid-template-rows: 1fr;
+}
+
+.bus-card__detail-inner {
+  overflow: hidden;
+  padding: 0 var(--bus-card-pad-x);
+}
+
+.bus-card__detail-row--open .bus-card__detail-inner {
+  padding-bottom: var(--bus-card-pad-y);
+}
+
+.bus-card__direction {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  padding-left: calc(var(--bus-card-route-width) + var(--bus-card-primary-gap));
+}
+
 @keyframes stale-pulse {
   0%,
   100% {

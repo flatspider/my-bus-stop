@@ -65,6 +65,9 @@ function getRouteColor(route: string, darkMode: boolean): string {
 interface BusCardProps {
   arrival: BusArrival;
   route: string;
+  direction?: string;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
   showMinSuffix?: boolean;
   showRouteName?: boolean;
   showStopsAway?: boolean;
@@ -102,13 +105,16 @@ function buildCardLabel(
   } else {
     parts.push(vehicleDotLabel);
   }
-  parts.push("Opens route details on MTA BusTime");
+  parts.push("Tap for details");
   return parts.join(". ");
 }
 
 export default function BusCard({
   arrival,
   route,
+  direction,
+  expanded = false,
+  onToggleExpand,
   showMinSuffix = true,
   showRouteName = true,
   showStopsAway = false,
@@ -125,10 +131,7 @@ export default function BusCard({
   const color = getRouteColor(route, darkMode);
   const routeName = route;
   const handleCardClick = () => {
-    const mtaUrl = `https://bustime.mta.info/m/index?q=${routeName}`;
-    if (window.confirm(`Open MTA page for ${routeName}?`)) {
-      window.open(mtaUrl, "_blank");
-    }
+    onToggleExpand?.();
   };
 
   const rawMinutes = arrival.minutes
@@ -210,6 +213,7 @@ export default function BusCard({
       className="bus-card bus-card--action"
       onClick={handleCardClick}
       aria-label={cardLabel}
+      aria-expanded={direction ? expanded : undefined}
     >
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
       <div className="bus-card__row">
@@ -281,6 +285,16 @@ export default function BusCard({
           </div>
         )}
       </div>
+      {direction && (
+        <div
+          className={`bus-card__detail-row${expanded ? " bus-card__detail-row--open" : ""}`}
+          aria-hidden={!expanded}
+        >
+          <div className="bus-card__detail-inner">
+            <span className="bus-card__direction">→ {direction}</span>
+          </div>
+        </div>
+      )}
     </button>
   );
 }
