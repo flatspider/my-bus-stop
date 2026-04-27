@@ -360,6 +360,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
             onClose={() => {
               localStorage.setItem("tutorialComplete", "true");
               setShowTutorial(false);
+              window.dispatchEvent(new CustomEvent("tutorial-feedback-done"));
             }}
           />
         </Suspense>
