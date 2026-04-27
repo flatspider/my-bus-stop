@@ -150,6 +150,7 @@ body {
 
 .stop-search__trigger-content {
   transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+  border-radius: 16px;
 }
 
 .stop-search--expanded .stop-search__trigger-row {

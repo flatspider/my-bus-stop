@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import StopTitleButton from "./StopTitleButton";
 
@@ -61,10 +61,26 @@ export default function StopSearchHeader({
     };
   }, [isExpanded]);
 
-  function handleOpenSearch() {
-    setHasOpened(true);
-    setIsExpanded(true);
-  }
+  const expandRafRef = useRef(0);
+
+  useEffect(() => {
+    return () => cancelAnimationFrame(expandRafRef.current);
+  }, []);
+
+  const handleOpenSearch = useCallback(() => {
+    if (hasOpened) {
+      // Content already in the DOM — transition works immediately
+      setIsExpanded(true);
+    } else {
+      // First open: render content at 0fr, then expand next frame
+      setHasOpened(true);
+      expandRafRef.current = requestAnimationFrame(() => {
+        expandRafRef.current = requestAnimationFrame(() => {
+          setIsExpanded(true);
+        });
+      });
+    }
+  }, [hasOpened]);
 
   function closeSearch() {
     shouldRestoreFocusRef.current = true;
