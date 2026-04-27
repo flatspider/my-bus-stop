@@ -256,8 +256,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
             onExpandedChange={setSearchExpanded}
           />
         </div>
-        {!searchExpanded && (
-          <div className="app-header__right">
+        <div className={`app-header__right${searchExpanded ? " app-header__right--hidden" : ""}`}>
             <button
               className={`gear-btn${settingsOpen ? " gear-btn--active" : ""}`}
               onClick={() => setSettingsOpen((prev) => !prev)}
@@ -280,7 +279,6 @@ export default function StopPage({ initialData = null }: StopPageProps) {
               </svg>
             </button>
           </div>
-        )}
       </header>
 
       {error && !noData && <div className="error">{error}</div>}
