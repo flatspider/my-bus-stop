@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BusArrival } from "../types";
 
 const ROUTE_COLORS: Record<string, string> = {
@@ -65,6 +65,9 @@ function getRouteColor(route: string, darkMode: boolean): string {
 interface BusCardProps {
   arrival: BusArrival;
   route: string;
+  direction?: string;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
   showMinSuffix?: boolean;
   showRouteName?: boolean;
   showStopsAway?: boolean;
@@ -102,13 +105,16 @@ function buildCardLabel(
   } else {
     parts.push(vehicleDotLabel);
   }
-  parts.push("Opens route details on MTA BusTime");
+  parts.push("Tap for details");
   return parts.join(". ");
 }
 
 export default function BusCard({
   arrival,
   route,
+  direction,
+  expanded = false,
+  onToggleExpand,
   showMinSuffix = true,
   showRouteName = true,
   showStopsAway = false,
@@ -118,17 +124,19 @@ export default function BusCard({
   const routeRef = useRef<HTMLSpanElement | null>(null);
   const minutesRef = useRef<HTMLSpanElement | null>(null);
   const inlineStopsMeasureRef = useRef<HTMLSpanElement | null>(null);
+  const detailRouteRef = useRef<HTMLSpanElement | null>(null);
+  const detailMeasureRef = useRef<HTMLSpanElement | null>(null);
   const [showInlineStopsAway, setShowInlineStopsAway] = useState(false);
+  const [showRouteInDetail, setShowRouteInDetail] = useState(false);
+  const [slideFrom, setSlideFrom] = useState<number | null>(null);
+  const prevExpanded = useRef(expanded);
   const darkMode =
     typeof document !== "undefined" &&
     document.documentElement.classList.contains("dark");
   const color = getRouteColor(route, darkMode);
   const routeName = route;
   const handleCardClick = () => {
-    const mtaUrl = `https://bustime.mta.info/m/index?q=${routeName}`;
-    if (window.confirm(`Open MTA page for ${routeName}?`)) {
-      window.open(mtaUrl, "_blank");
-    }
+    onToggleExpand?.();
   };
 
   const rawMinutes = arrival.minutes
@@ -204,18 +212,80 @@ export default function BusCard({
     showStopsAway,
   ]);
 
+  // Measure whether "M101 → direction" fits on one line in the detail row
+  useEffect(() => {
+    if (!direction || !showRouteName) {
+      setShowRouteInDetail(false);
+      return;
+    }
+
+    const measure = () => {
+      const el = detailMeasureRef.current;
+      if (!el) return;
+      const parent = el.closest(".bus-card__detail-inner") as HTMLElement | null;
+      if (!parent) return;
+      const availableWidth = parent.clientWidth;
+      setShowRouteInDetail(el.scrollWidth <= availableWidth);
+    };
+
+    measure();
+
+    const parent = detailMeasureRef.current?.closest(".bus-card__detail-inner") as HTMLElement | null;
+    if (!parent || typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [direction, showRouteName, route]);
+
+  // FLIP: calculate vertical delta when expanding
+  useLayoutEffect(() => {
+    const justExpanded = expanded && !prevExpanded.current;
+    const justCollapsed = !expanded && prevExpanded.current;
+    prevExpanded.current = expanded;
+
+    if (justExpanded && showRouteInDetail) {
+      const primaryRect = routeRef.current?.getBoundingClientRect();
+      const detailRect = detailRouteRef.current?.getBoundingClientRect();
+      if (primaryRect && detailRect) {
+        setSlideFrom(primaryRect.top - detailRect.top);
+      }
+    }
+
+    if (justCollapsed) {
+      setSlideFrom(null);
+    }
+  }, [expanded, showRouteInDetail]);
+
+  // After slideFrom is set, clear it in the next frame to trigger the transition
+  useEffect(() => {
+    if (slideFrom === null) return;
+    const raf = requestAnimationFrame(() => {
+      setSlideFrom(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slideFrom]);
+
   return (
     <button
       type="button"
       className="bus-card bus-card--action"
       onClick={handleCardClick}
       aria-label={cardLabel}
+      aria-expanded={direction ? expanded : undefined}
     >
       <div className="bus-card__accent" style={{ backgroundColor: color }} />
       <div className="bus-card__row">
         <div className="bus-card__primary-row" ref={rowRef}>
           {showRouteName && (
-            <span className="bus-card__route" style={{ color }} ref={routeRef}>
+            <span
+              className={`bus-card__route${expanded && showRouteInDetail ? " bus-card__route--hidden" : ""}`}
+              style={{ color }}
+              ref={routeRef}
+            >
               {routeName}
             </span>
           )}
@@ -233,7 +303,10 @@ export default function BusCard({
               {stopsAway.count ? (
                 <>
                   <span className="bus-card__stops-away-count">{stopsAway.count}</span>
-                  <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                  <span className="bus-card__stops-away-label">
+                    {stopsAway.label}
+                    <span className={`bus-card__stops-away-suffix${expanded ? " bus-card__stops-away-suffix--show" : ""}`}> away</span>
+                  </span>
                 </>
               ) : (
                 <span className="bus-card__stops-away-label">{stopsAway.label}</span>
@@ -271,7 +344,10 @@ export default function BusCard({
             {stopsAway.count ? (
               <span className="bus-card__stops-away bus-card__stops-away--stacked" aria-label={arrival.stopsAway}>
                 <span className="bus-card__stops-away-count">{stopsAway.count}</span>
-                <span className="bus-card__stops-away-label">{stopsAway.label}</span>
+                <span className="bus-card__stops-away-label">
+                  {stopsAway.label}
+                  <span className={`bus-card__stops-away-suffix${expanded ? " bus-card__stops-away-suffix--show" : ""}`}> away</span>
+                </span>
               </span>
             ) : (
               <span className="bus-card__stops-away bus-card__stops-away--stacked bus-card__stops-away--text-only">
@@ -281,6 +357,39 @@ export default function BusCard({
           </div>
         )}
       </div>
+      {direction && (
+        <div
+          className={`bus-card__detail-row${expanded ? " bus-card__detail-row--open" : ""}`}
+          aria-hidden={!expanded}
+        >
+          <div className="bus-card__detail-inner">
+            {showRouteInDetail && (
+              <span
+                className="bus-card__detail-route"
+                style={{
+                  color,
+                  transform: slideFrom !== null ? `translateY(${slideFrom}px)` : undefined,
+                }}
+                ref={detailRouteRef}
+                aria-hidden="true"
+              >
+                {routeName}
+              </span>
+            )}
+            <span className="bus-card__direction">
+              {!showRouteInDetail && "→ "}{direction}
+            </span>
+            {/* Hidden measurement span */}
+            <span
+              className="bus-card__detail-measure"
+              aria-hidden="true"
+              ref={detailMeasureRef}
+            >
+              {routeName} → {direction}
+            </span>
+          </div>
+        </div>
+      )}
     </button>
   );
 }

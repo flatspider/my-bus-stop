@@ -31,7 +31,7 @@ const STEPS: {
   },
   {
     target: '[data-tutorial="card"]',
-    text: "Each card is one arriving bus. Click for route details on MTA BusTime.",
+    text: "Each card is one arriving bus. Tap card for detail.",
     borderRadius: 16,
   },
   {
@@ -97,6 +97,10 @@ export default function Tutorial({ onClose, onStepChange }: Props) {
   // Handle step transitions — only depends on `step`
   useEffect(() => {
     onStepChange?.(step);
+    // When reaching the feedback step, tell FeedbackCard to expand
+    if (STEPS[step].target === '[data-tutorial="feedback"]') {
+      window.dispatchEvent(new CustomEvent("tutorial-feedback-step", { detail: { active: true } }));
+    }
   }, [onStepChange, step]);
 
   // Handle step transitions — only depends on `step`
@@ -315,12 +319,12 @@ export default function Tutorial({ onClose, onStepChange }: Props) {
         aria-label="Close tutorial"
       >
         <svg
-          width="12"
-          height="12"
+          width="20"
+          height="20"
           viewBox="0 0 12 12"
           fill="none"
           stroke="#fff"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
         >
           <line x1="2" y1="2" x2="10" y2="10" />

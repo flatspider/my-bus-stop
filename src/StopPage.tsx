@@ -56,6 +56,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const activeStopCodeRef = useRef(normalizedStopCode);
   const lastRequestAtByStopRef = useRef<Record<string, number>>({});
@@ -120,6 +121,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
         setRoutes(data.routes);
         setLastFetchAtMs(Date.now());
         setError(null);
+        setExpandedCardId(null);
       } catch (e) {
         if (activeStopCodeRef.current !== requestStopCode) return;
         setError(e instanceof Error ? e.message : "Failed to fetch");
@@ -296,6 +298,13 @@ export default function StopPage({ initialData = null }: StopPageProps) {
                   <BusCard
                     arrival={topCardArrival ?? topCard.arrival}
                     route={topCard.route}
+                    direction={topCard.direction}
+                    expanded={expandedCardId === topCard.id}
+                    onToggleExpand={() =>
+                      setExpandedCardId((prev) =>
+                        prev === topCard.id ? null : topCard.id,
+                      )
+                    }
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
@@ -310,6 +319,13 @@ export default function StopPage({ initialData = null }: StopPageProps) {
                   <BusCard
                     arrival={card.arrival}
                     route={card.route}
+                    direction={card.direction}
+                    expanded={expandedCardId === card.id}
+                    onToggleExpand={() =>
+                      setExpandedCardId((prev) =>
+                        prev === card.id ? null : card.id,
+                      )
+                    }
                     showMinSuffix={settings.showMinSuffix}
                     showRouteName={settings.showRouteName}
                     showStopsAway={settings.showStopsAway}
@@ -344,6 +360,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
             onClose={() => {
               localStorage.setItem("tutorialComplete", "true");
               setShowTutorial(false);
+              window.dispatchEvent(new CustomEvent("tutorial-feedback-done"));
             }}
           />
         </Suspense>

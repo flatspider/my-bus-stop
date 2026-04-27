@@ -40,17 +40,28 @@ function AppRoutes({
 const FEEDBACK_FORM_URL = "https://forms.gle/2d4VscFjUocr7RE18";
 
 function FeedbackCard() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     // Slide in after a brief delay
     const enterTimer = setTimeout(() => setEntered(true), 400);
-    // Auto-collapse after 4 seconds
-    const collapseTimer = setTimeout(() => setCollapsed(true), 4400);
+    return () => clearTimeout(enterTimer);
+  }, []);
+
+  // Expand/collapse based on tutorial feedback step events
+  useEffect(() => {
+    function handleExpand() {
+      setCollapsed(false);
+    }
+    function handleCollapse() {
+      setCollapsed(true);
+    }
+    window.addEventListener("tutorial-feedback-step", handleExpand);
+    window.addEventListener("tutorial-feedback-done", handleCollapse);
     return () => {
-      clearTimeout(enterTimer);
-      clearTimeout(collapseTimer);
+      window.removeEventListener("tutorial-feedback-step", handleExpand);
+      window.removeEventListener("tutorial-feedback-done", handleCollapse);
     };
   }, []);
 
