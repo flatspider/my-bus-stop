@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BusArrival } from "../types";
 
 const ROUTE_COLORS: Record<string, string> = {
@@ -124,7 +124,12 @@ export default function BusCard({
   const routeRef = useRef<HTMLSpanElement | null>(null);
   const minutesRef = useRef<HTMLSpanElement | null>(null);
   const inlineStopsMeasureRef = useRef<HTMLSpanElement | null>(null);
+  const detailRouteRef = useRef<HTMLSpanElement | null>(null);
+  const detailMeasureRef = useRef<HTMLSpanElement | null>(null);
   const [showInlineStopsAway, setShowInlineStopsAway] = useState(false);
+  const [showRouteInDetail, setShowRouteInDetail] = useState(false);
+  const [slideFrom, setSlideFrom] = useState<number | null>(null);
+  const prevExpanded = useRef(expanded);
   const darkMode =
     typeof document !== "undefined" &&
     document.documentElement.classList.contains("dark");
@@ -207,6 +212,63 @@ export default function BusCard({
     showStopsAway,
   ]);
 
+  // Measure whether "M101 → direction" fits on one line in the detail row
+  useEffect(() => {
+    if (!direction || !showRouteName) {
+      setShowRouteInDetail(false);
+      return;
+    }
+
+    const measure = () => {
+      const el = detailMeasureRef.current;
+      if (!el) return;
+      const parent = el.closest(".bus-card__detail-inner") as HTMLElement | null;
+      if (!parent) return;
+      const availableWidth = parent.clientWidth;
+      setShowRouteInDetail(el.scrollWidth <= availableWidth);
+    };
+
+    measure();
+
+    const parent = detailMeasureRef.current?.closest(".bus-card__detail-inner") as HTMLElement | null;
+    if (!parent || typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [direction, showRouteName, route]);
+
+  // FLIP: calculate vertical delta when expanding
+  useLayoutEffect(() => {
+    const justExpanded = expanded && !prevExpanded.current;
+    const justCollapsed = !expanded && prevExpanded.current;
+    prevExpanded.current = expanded;
+
+    if (justExpanded && showRouteInDetail) {
+      const primaryRect = routeRef.current?.getBoundingClientRect();
+      const detailRect = detailRouteRef.current?.getBoundingClientRect();
+      if (primaryRect && detailRect) {
+        setSlideFrom(primaryRect.top - detailRect.top);
+      }
+    }
+
+    if (justCollapsed) {
+      setSlideFrom(null);
+    }
+  }, [expanded, showRouteInDetail]);
+
+  // After slideFrom is set, clear it in the next frame to trigger the transition
+  useEffect(() => {
+    if (slideFrom === null) return;
+    const raf = requestAnimationFrame(() => {
+      setSlideFrom(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slideFrom]);
+
   return (
     <button
       type="button"
@@ -219,7 +281,11 @@ export default function BusCard({
       <div className="bus-card__row">
         <div className="bus-card__primary-row" ref={rowRef}>
           {showRouteName && (
-            <span className="bus-card__route" style={{ color }} ref={routeRef}>
+            <span
+              className={`bus-card__route${expanded && showRouteInDetail ? " bus-card__route--hidden" : ""}`}
+              style={{ color }}
+              ref={routeRef}
+            >
               {routeName}
             </span>
           )}
@@ -297,7 +363,30 @@ export default function BusCard({
           aria-hidden={!expanded}
         >
           <div className="bus-card__detail-inner">
-            <span className="bus-card__direction">→ {direction}</span>
+            {showRouteInDetail && (
+              <span
+                className="bus-card__detail-route"
+                style={{
+                  color,
+                  transform: slideFrom !== null ? `translateY(${slideFrom}px)` : undefined,
+                }}
+                ref={detailRouteRef}
+                aria-hidden="true"
+              >
+                {routeName}
+              </span>
+            )}
+            <span className="bus-card__direction">
+              {!showRouteInDetail && "→ "}{direction}
+            </span>
+            {/* Hidden measurement span */}
+            <span
+              className="bus-card__detail-measure"
+              aria-hidden="true"
+              ref={detailMeasureRef}
+            >
+              {routeName} → {direction}
+            </span>
           </div>
         </div>
       )}
