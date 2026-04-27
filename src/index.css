@@ -112,6 +112,12 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.app-header__right--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .stop-name {
@@ -129,6 +135,54 @@ body {
 .stop-search--icon-only {
   width: auto;
   flex: 0 0 auto;
+}
+
+/* ── Trigger / Search crossfade rows ── */
+.stop-search__trigger-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.stop-search__trigger-row > * {
+  overflow: hidden;
+}
+
+.stop-search__trigger-content {
+  transition: opacity 0.25s cubic-bezier(0.2, 0, 0, 1);
+  border-radius: 16px;
+}
+
+.stop-search--expanded .stop-search__trigger-row {
+  grid-template-rows: 0fr;
+}
+
+.stop-search--expanded .stop-search__trigger-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stop-search__search-row {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.stop-search__search-row > * {
+  overflow: hidden;
+}
+
+.stop-search__search-content {
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1) 0.1s;
+}
+
+.stop-search--expanded .stop-search__search-row {
+  grid-template-rows: 1fr;
+}
+
+.stop-search--expanded .stop-search__search-content {
+  opacity: 1;
 }
 
 .stop-search__trigger {
@@ -346,7 +400,6 @@ body {
   display: flex;
   align-items: center;
   min-height: 40px;
-  animation: stop-search-expand 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .stop-search__input {
@@ -405,7 +458,6 @@ body {
   overflow-y: auto;
   padding: 12px;
   margin-top: 8px;
-  animation: stop-search-dropdown-enter 140ms ease-out;
 }
 
 .stop-search__section {
@@ -1293,27 +1345,6 @@ html.dark .bus-card__vehicle-dot--fallback {
   }
 }
 
-@keyframes stop-search-expand {
-  from {
-    opacity: 0.7;
-    transform: translateY(-3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes stop-search-dropdown-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* ── Tutorial Overlay ── */
 .tutorial-spotlight {
@@ -1666,9 +1697,11 @@ html.dark .bus-card__vehicle-dot--fallback {
     animation: none;
   }
 
-  .stop-search__input-shell,
-  .stop-search__dropdown {
-    animation: none;
+  .stop-search__trigger-row,
+  .stop-search__search-row,
+  .stop-search__trigger-content,
+  .stop-search__search-content {
+    transition: none;
   }
 
   .settings-panel__input--shake {
