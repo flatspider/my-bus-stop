@@ -1438,6 +1438,22 @@ html.dark .bus-card__vehicle-dot--fallback {
   opacity: 0.7;
 }
 
+html.film-cursor,
+html.film-cursor body,
+html.film-cursor #root,
+html.film-cursor *,
+.app--film-cursor,
+.app--film-cursor * {
+  cursor: pointer;
+}
+
+html.film-cursor :disabled,
+html.film-cursor [aria-disabled="true"],
+.app--film-cursor :disabled,
+.app--film-cursor [aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .tutorial-overlay {
   position: fixed;
   inset: 0;

@@ -15,7 +15,11 @@ import StopSearchHeader from "./components/StopSearchHeader";
 import { useSettings } from "./useSettings";
 import { DEFAULT_STOP_CODE, STOP_CODE_PATTERN } from "./stopConfig";
 import { loadRecents, saveRecents } from "./recentStopsStore";
-import { shouldForceLeadCardNow } from "./urlFlags";
+import {
+  buildFilmCursorSearch,
+  shouldForceLeadCardNow,
+  shouldUseFilmCursor,
+} from "./urlFlags";
 import type { InitialStopData } from "./initialStopData";
 import { formatStopName } from "./formatStopName";
 
@@ -34,6 +38,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const navigate = useNavigate();
   const normalizedStopCode = stopCode?.trim() ?? "";
   const forceLeadCardNow = shouldForceLeadCardNow(location.search);
+  const useFilmCursor = shouldUseFilmCursor(location.search);
   const isValidStopCode = STOP_CODE_PATTERN.test(normalizedStopCode);
   const matchedInitialData =
     initialData?.stopCode === normalizedStopCode ? initialData : null;
@@ -166,6 +171,13 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   }, []);
 
   useEffect(() => {
+    document.documentElement.classList.toggle("film-cursor", useFilmCursor);
+    return () => {
+      document.documentElement.classList.remove("film-cursor");
+    };
+  }, [useFilmCursor]);
+
+  useEffect(() => {
     if (!matchedInitialData || matchedInitialData.isPartial) {
       void fetchBusData();
     }
@@ -223,12 +235,12 @@ export default function StopPage({ initialData = null }: StopPageProps) {
       .join(" ");
 
   if (!isValidStopCode) {
-    return <Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />;
+    return <Navigate to={`/stop/${DEFAULT_STOP_CODE}${buildFilmCursorSearch(location.search)}`} replace />;
   }
 
   function handleStopSelect(stop: StopSearchResult) {
     const nextStopCode = stop.code;
-    const targetPath = `/stop/${nextStopCode}`;
+    const targetPath = `/stop/${nextStopCode}${buildFilmCursorSearch(location.search)}`;
     setStopName(stop.name);
     setRoutes([]);
     setLoading(true);
@@ -252,7 +264,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const formattedStopName = stopName ? formatStopName(stopName) : `Stop ${normalizedStopCode}`;
 
   return (
-    <div className="app">
+    <div className={`app${useFilmCursor ? " app--film-cursor" : ""}`}>
       <h1 className="sr-only">{formattedStopName} bus arrivals</h1>
       <header
         className={`app-header${searchExpanded ? " app-header--search-active" : ""}`}
