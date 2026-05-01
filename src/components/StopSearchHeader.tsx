@@ -1,12 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import StopTitleButton from "./StopTitleButton";
+import type { StopSearchResult } from "../types";
 
 interface StopSearchHeaderProps {
   stopName: string;
   showStopTitle: boolean;
   statusNode: ReactNode;
-  onSelectStop: (code: string) => void;
+  onSelectStop: (stop: StopSearchResult) => void;
   onExpandedChange?: (isExpanded: boolean) => void;
 }
 

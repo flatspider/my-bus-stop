@@ -10,7 +10,7 @@ const MAX_VISIBLE_RESULTS = 10;
 
 interface StopSearchPanelProps {
   onClose: () => void;
-  onSelectStop: (code: string) => void;
+  onSelectStop: (stop: StopSearchResult) => void;
 }
 
 interface GeoState {
@@ -178,7 +178,7 @@ export default function StopSearchPanel({
       ...recents.filter((entry) => entry.code !== stop.code),
     ]);
 
-    onSelectStop(stop.code);
+    onSelectStop(stop);
     onClose();
   }
 

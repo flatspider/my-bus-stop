@@ -6,6 +6,7 @@ import {
   STALE_DATA_THRESHOLD_MS,
 } from "./refreshPolicy";
 import type { BusRoute } from "./types";
+import type { StopSearchResult } from "./types";
 import { deriveArrivalCards } from "./arrivalCards";
 import { useArrivalCardTransition } from "./useArrivalCardTransition";
 import BusCard from "./components/BusCard";
@@ -89,6 +90,10 @@ export default function StopPage({ initialData = null }: StopPageProps) {
     }
     setLoading(true);
     setError(null);
+    setRoutes([]);
+    setExpandedCardId(null);
+    setLastFetchAtMs(0);
+    setNextAllowedRefreshAt(0);
   }, [normalizedStopCode]);
 
   const fetchBusData = useCallback(async (options?: { force?: boolean }) => {
@@ -175,6 +180,7 @@ export default function StopPage({ initialData = null }: StopPageProps) {
   const { displayCards, exitingTopId, isSlidePhase } = useArrivalCardTransition(
     arrivalCards,
     true,
+    normalizedStopCode,
   );
 
   const refreshCooldownSeconds = Math.max(
@@ -220,8 +226,17 @@ export default function StopPage({ initialData = null }: StopPageProps) {
     return <Navigate to={`/stop/${DEFAULT_STOP_CODE}`} replace />;
   }
 
-  function handleStopSelect(nextStopCode: string) {
+  function handleStopSelect(stop: StopSearchResult) {
+    const nextStopCode = stop.code;
     const targetPath = `/stop/${nextStopCode}`;
+    setStopName(stop.name);
+    setRoutes([]);
+    setLoading(true);
+    setError(null);
+    setExpandedCardId(null);
+    setLastFetchAtMs(0);
+    setNextAllowedRefreshAt(0);
+
     if (normalizedStopCode === nextStopCode) {
       void fetchBusData({ force: true });
     } else {
