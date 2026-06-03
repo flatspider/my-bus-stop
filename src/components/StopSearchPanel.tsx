@@ -228,8 +228,15 @@ export default function StopSearchPanel({
         <button
           type="button"
           className="stop-search__close-inline"
-          onClick={onClose}
-          aria-label="Close stop search"
+          onClick={() => {
+            if (query) {
+              setQuery("");
+              inputRef.current?.focus({ preventScroll: true });
+            } else {
+              onClose();
+            }
+          }}
+          aria-label={query ? "Clear search" : "Close stop search"}
         >
           <svg
             width="14"
